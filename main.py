@@ -2,26 +2,38 @@ import os
 import re
 import uuid
 import shutil
-import sqlite3
 from pathlib import Path
-from contextlib import contextmanager
 
 from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from PIL import Image
-import pytesseract
-from pdf2image import convert_from_path
+from db import get_conn, fetchall, execute, init_db
 
-from db import get_conn, fetchone, fetchall, execute, init_db
+# ---------------------------------
+# Optional OCR imports
+# ---------------------------------
+OCR_ENABLED = True
+OCR_IMPORT_ERROR = ""
 
-app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
-templates = Jinja2Templates(directory="templates")
+try:
+    from PIL import Image
+    import pytesseract
+    from pdf2image import convert_from_path
+except Exception as e:
+    OCR_ENABLED = False
+    OCR_IMPORT_ERROR = str(e)
 
+# ---------------------------------
+# App setup
+# ---------------------------------
 BASE_DIR = Path(__file__).resolve().parent
+TEMPLATES_DIR = BASE_DIR / "templates"
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 DEFAULT_LEDGER_GROUPS = [
     "Capital Account",
@@ -40,6 +52,9 @@ def startup():
     init_db()
 
 
+# ---------------------------------
+# Helpers
+# ---------------------------------
 def get_active_company_id(request: Request):
     raw = request.cookies.get("active_company_id")
     if raw and raw.isdigit():
@@ -52,7 +67,10 @@ def get_active_company(request: Request):
     if not company_id:
         return None
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        return conn.execute(
+            "SELECT * FROM companies WHERE id = ?",
+            (company_id,)
+        ).fetchone()
 
 
 def list_companies():
@@ -335,7 +353,6 @@ def analyze_voucher(company_id, voucher_data, entries):
             )).fetchone()[0]
 
     ledger_map = get_ledger_map(company_id)
-
     has_cash_bank = False
     has_missing_gstin = False
 
@@ -728,11 +745,15 @@ def parse_invoice_text(invoice_text: str):
 
 
 def extract_text_from_image(image_path: Path) -> str:
+    if not OCR_ENABLED:
+        raise RuntimeError("OCR is not available in this deployment environment.")
     image = Image.open(image_path)
     return pytesseract.image_to_string(image)
 
 
 def extract_text_from_pdf(pdf_path: Path) -> str:
+    if not OCR_ENABLED:
+        raise RuntimeError("PDF OCR is not available in this deployment environment.")
     pages = convert_from_path(str(pdf_path))
     texts = []
     for page in pages:
@@ -773,7 +794,6 @@ def build_scanner_result_from_text(invoice_text: str, voucher_type: str):
 def build_context(request: Request, screen="dashboard", selected_voucher_type="", scanner_result=None):
     active_company = get_active_company(request)
     company_id = active_company["id"] if active_company else None
-
     data = ai_dashboard(company_id)
 
     return {
@@ -794,10 +814,15 @@ def build_context(request: Request, screen="dashboard", selected_voucher_type=""
         "risk_alerts": data["risk_alerts"],
         "compliance_items": data["compliance_items"],
         "ai_summary": data["ai_summary"],
-        "scanner_result": scanner_result
+        "scanner_result": scanner_result,
+        "ocr_enabled": OCR_ENABLED,
+        "ocr_import_error": OCR_IMPORT_ERROR
     }
 
 
+# ---------------------------------
+# Routes
+# ---------------------------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, screen: str = "dashboard", type: str = ""):
     return templates.TemplateResponse(
@@ -1073,9 +1098,7 @@ async def scanner_upload_preview(
             build_context(
                 request,
                 screen="scanner",
-                scanner_result={
-                    "error": "No file selected."
-                }
+                scanner_result={"error": "No file selected."}
             )
         )
 
@@ -1089,6 +1112,18 @@ async def scanner_upload_preview(
                 screen="scanner",
                 scanner_result={
                     "error": "Unsupported file type. Upload PNG, JPG, JPEG, PDF, BMP, TIFF, or WEBP."
+                }
+            )
+        )
+
+    if not OCR_ENABLED:
+        return templates.TemplateResponse(
+            "index.html",
+            build_context(
+                request,
+                screen="scanner",
+                scanner_result={
+                    "error": f"OCR is disabled in this deployment. {OCR_IMPORT_ERROR}".strip()
                 }
             )
         )
