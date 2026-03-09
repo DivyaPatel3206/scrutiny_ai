@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tally Basic Clone</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f7fb;
+      color: #1f2937;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .app {
+      display: grid;
+      grid-template-rows: 56px 1fr 42px;
+      height: 100vh;
+    }
+    .topbar {
+      background: #0f172a;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 3px solid #2563eb;
+    }
+    .topbar h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 0;
+    }
+    .sidebar {
+      background: #111827;
+      color: white;
+      padding: 14px;
+      overflow-y: auto;
+    }
+    .menu-group {
+      margin-bottom: 14px;
+    }
+    .menu-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #93c5fd;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      padding-bottom: 6px;
+    }
+    .menu-btn {
+      width: 100%;
+      text-align: left;
+      border: none;
+      background: transparent;
+      color: white;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      font-size: 14px;
+      text-decoration: none;
+      display: block;
+    }
+    .menu-btn:hover, .menu-btn.active {
+      background: #2563eb;
+    }
+    .workspace {
+      padding: 18px;
+      overflow-y: auto;
+    }
+    .panel {
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .panel h2 {
+      margin-top: 0;
+      font-size: 22px;
+      color: #0f172a;
+    }
+    .muted { color: #6b7280; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+      background: white;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    }
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button.primary, button.secondary, button.danger,
+    a.primary, a.secondary, a.danger {
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-block;
+    }
+    button.primary, a.primary { background: #2563eb; color: white; }
+    button.secondary, a.secondary { background: #e2e8f0; color: #0f172a; }
+    button.danger, a.danger { background: #dc2626; color: white; }
+    .footer {
+      background: #0f172a;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 16px;
+      font-size: 13px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+    th { background: #f8fafc; }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge.high {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .badge.medium {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .badge.low {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .card {
+      background: linear-gradient(135deg, #eff6ff, #ffffff);
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      padding: 16px;
+    }
+    .card h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #1e3a8a;
+    }
+    .card p {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .voucher-line {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: end;
+    }
+    .ai-flag {
+      margin: 6px 0;
+      padding: 8px 10px;
+      border-left: 4px solid #2563eb;
+      background: #eff6ff;
+      border-radius: 8px;
+    }
+    .explain {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .scanner-box {
+      border: 1px dashed #94a3b8;
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    @media (max-width: 1000px) {
+      .grid-2, .grid-3, .grid-4, .summary-cards { grid-template-columns: 1fr; }
+      .main { grid-template-columns: 1fr; }
+      .sidebar { max-height: 260px; }
+      .voucher-line { grid-template-columns: 1fr; }
+      body { overflow: auto; }
+      .app { height: auto; min-height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <h1>Tally Basic Clone</h1>
+      <div>
+        <strong>Company:</strong>
+        <span id="activeCompanyLabel">{{ active_company.name if active_company else 'Not Selected' }}</span>
+        &nbsp; | &nbsp;
+        <strong id="clock"></strong>
+      </div>
+    </div>
+
+    <div class="main">
+      <aside class="sidebar">
+        <div class="menu-group">
+          <div class="menu-title">Gateway</div>
+          <a class="menu-btn {% if screen == 'dashboard' %}active{% endif %}" href="/?screen=dashboard">Dashboard</a>
+          <a class="menu-btn {% if screen == 'company' %}active{% endif %}" href="/?screen=company">Create Company</a>
+        </div>
+
+        <div class="menu-group">
+          <div class="menu-title">Masters</div>
+          <a class="menu-btn {% if screen == 'ledger' %}active{% endif %}" href="/?screen=ledger">Ledger Creation</a>
+        </div>
+
+        <div class="menu-group">
+          <div class="menu-title">Transactions</div>
+          <a class="menu-btn {% if screen == 'voucher' %}active{% endif %}" href="/?screen=voucher">Voucher Entry</a>
+          <a class="menu-btn {% if screen == 'scanner' %}active{% endif %}" href="/?screen=scanner">Invoice Scanner</a>
+        </div>
+
+        <div class="menu-group">
+          <div class="menu-title">AI Scrutiny & Compliance</div>
+          <a class="menu-btn {% if screen == 'ai' %}active{% endif %}" href="/?screen=ai">AI Dashboard</a>
+          <a class="menu-btn {% if screen == 'risk_alerts' %}active{% endif %}" href="/?screen=risk_alerts">Risk Alerts</a>
+          <a class="menu-btn {% if screen == 'compliance' %}active{% endif %}" href="/?screen=compliance">Compliance Check</a>
+        </div>
+      </aside>
+
+      <main class="workspace">
+
+        {% if screen == "dashboard" %}
+          <div class="panel">
+            <h2>Gateway of Tally</h2>
+            <p class="muted">
+              Existing Tally clone = transaction engine. AI Scrutiny & Compliance = intelligence engine on top of the same data.
+            </p>
+
+            <div class="summary-cards">
+              <div class="card"><h3>Total Companies</h3><p>{{ summary.company_count }}</p></div>
+              <div class="card"><h3>Active Company Ledgers</h3><p>{{ summary.ledger_count }}</p></div>
+              <div class="card"><h3>Active Company Vouchers</h3><p>{{ summary.voucher_count }}</p></div>
+              <div class="card"><h3>Total Debit / Credit</h3><p>₹{{ "%.2f"|format(summary.debit_total) }}</p></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2>Quick View</h2>
+            <p><span class="badge">Active Company</span> {{ active_company.name if active_company else 'No company selected yet' }}</p>
+            <p class="muted">Create company → create ledgers → save vouchers → AI analyzes same records automatically.</p>
+          </div>
+
+          <div class="panel">
+            <h2>AI Summary</h2>
+            <p class="muted">{{ ai_summary }}</p>
+          </div>
+
+          <div class="panel">
+            <h2>Recent Vouchers</h2>
+            {% if vouchers %}
+              <table>
+                <thead>
+                  <tr><th>Date</th><th>Type</th><th>Narration</th><th>Entries</th><th>AI Risk</th></tr>
+                </thead>
+                <tbody>
+                  {% for item in vouchers[:10] %}
+                  <tr>
+                    <td>{{ item.voucher.date }}</td>
+                    <td>{{ item.voucher.type }}</td>
+                    <td>{{ item.voucher.narration or '-' }}</td>
+                    <td>{{ item.entries|length }}</td>
+                    <td>
+                      <span class="badge {{ item.voucher.ai_risk_level|lower }}">
+                        {{ item.voucher.ai_risk_level }} ({{ item.voucher.ai_risk_score }})
+                      </span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="muted">No vouchers created yet.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if screen == "company" %}
+          <div class="panel">
+            <h2>Company Creation</h2>
+            <form method="post" action="/company">
+              <div class="grid-2">
+                <div><label>Company Name</label><input required name="name" /></div>
+                <div><label>Mailing Name</label><input name="mailing_name" /></div>
+                <div><label>Address</label><input name="address" /></div>
+                <div><label>State</label><input name="state" /></div>
+                <div><label>Country</label><input name="country" value="India" /></div>
+                <div><label>Phone</label><input name="phone" /></div>
+                <div><label>Email</label><input name="email" type="email" /></div>
+                <div><label>Financial Year Start</label><input name="financial_year_start" type="date" required /></div>
+                <div><label>Books Beginning From</label><input name="books_from" type="date" required /></div>
+                <div><label>Currency Symbol</label><input name="currency" value="₹" /></div>
+                <div>
+                  <label>Maintain Inventory</label>
+                  <select name="maintain_inventory"><option value="Yes">Yes</option><option value="No">No</option></select>
+                </div>
+                <div>
+                  <label>Enable GST</label>
+                  <select name="enable_gst"><option value="Yes">Yes</option><option value="No">No</option></select>
+                </div>
+              </div>
+              <div class="actions">
+                <button type="submit" class="primary">Save Company</button>
+                <button type="reset" class="secondary">Reset</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <h2>Companies List</h2>
+            {% if companies %}
+              <table>
+                <thead>
+                  <tr><th>Name</th><th>State</th><th>Phone</th><th>GST</th><th>Active</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {% for c in companies %}
+                  <tr>
+                    <td>{{ c.name }}</td>
+                    <td>{{ c.state or '-' }}</td>
+                    <td>{{ c.phone or '-' }}</td>
+                    <td>{{ c.enable_gst }}</td>
+                    <td>{% if active_company and active_company.id == c.id %}<span class="badge">Active</span>{% endif %}</td>
+                    <td>
+                      <a href="/company/select/{{ c.id }}" class="secondary">Select</a>
+                      <a href="/company/delete/{{ c.id }}" class="danger">Delete</a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="muted">No companies created.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if screen == "ledger" %}
+          {% if not active_company %}
+            <div class="panel">
+              <h2>Ledger Creation</h2>
+              <p class="muted">Please create or select a company first.</p>
+            </div>
+          {% else %}
+            <div class="panel">
+              <h2>Ledger Creation - {{ active_company.name }}</h2>
+              <form method="post" action="/ledger">
+                <div class="grid-2">
+                  <div><label>Ledger Name</label><input required name="ledger_name" /></div>
+                  <div>
+                    <label>Group</label>
+                    <select name="group_name">
+                      {% for g in default_ledger_groups %}
+                      <option value="{{ g }}">{{ g }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div><label>Opening Balance</label><input name="opening_balance" type="number" step="0.01" value="0" /></div>
+                  <div>
+                    <label>Balance Type</label>
+                    <select name="balance_type"><option value="Debit">Debit</option><option value="Credit">Credit</option></select>
+                  </div>
+                  <div>
+                    <label>GST Applicable</label>
+                    <select name="gst_applicable"><option value="No">No</option><option value="Yes">Yes</option></select>
+                  </div>
+                  <div><label>GST Number</label><input name="gst_number" /></div>
+                  <div><label>Address</label><input name="address" /></div>
+                  <div><label>Phone</label><input name="phone" /></div>
+                  <div><label>Email</label><input name="email" type="email" /></div>
+                </div>
+                <div class="actions">
+                  <button type="submit" class="primary">Save Ledger</button>
+                  <button type="reset" class="secondary">Reset</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="panel">
+              <h2>Ledger List</h2>
+              {% if ledgers %}
+                <table>
+                  <thead>
+                    <tr><th>Name</th><th>Group</th><th>Opening Balance</th><th>Type</th><th>GST</th><th>Action</th></tr>
+                  </thead>
+                  <tbody>
+                    {% for l in ledgers %}
+                    <tr>
+                      <td>{{ l.ledger_name }}</td>
+                      <td>{{ l.group_name }}</td>
+                      <td>{{ "%.2f"|format(l.opening_balance) }}</td>
+                      <td>{{ l.balance_type }}</td>
+                      <td>{{ l.gst_applicable }}</td>
+                      <td><a href="/ledger/delete/{{ l.id }}" class="danger">Delete</a></td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% else %}
+                <p class="muted">No ledgers created for this company.</p>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endif %}
+
+        {% if screen == "voucher" %}
+          {% if not active_company %}
+            <div class="panel">
+              <h2>Voucher Entry</h2>
+              <p class="muted">Please create or select a company first.</p>
+            </div>
+          {% elif ledgers|length < 2 %}
+            <div class="panel">
+              <h2>Voucher Entry</h2>
+              <p class="muted">Please create at least two ledgers before entering vouchers.</p>
+            </div>
+          {% else %}
+            <div class="panel">
+              <h2>Voucher Entry - {{ active_company.name }}</h2>
+              <form method="post" action="/voucher" id="voucherForm">
+                <div class="grid-4">
+                  <div><label>Voucher Number</label><input name="voucherNumber" id="voucherNumber" required /></div>
+                  <div><label>Date</label><input name="date" id="voucherDate" type="date" required /></div>
+                  <div>
+                    <label>Voucher Type</label>
+                    <select name="type" id="voucherType">
+                      <option {% if selected_voucher_type =='Contra' %}selected{% endif %}>Contra</option>
+                      <option {% if selected_voucher_type =='Payment' %}selected{% endif %}>Payment</option>
+                      <option {% if selected_voucher_type =='Receipt' %}selected{% endif %}>Receipt</option>
+                      <option {% if selected_voucher_type =='Journal' %}selected{% endif %}>Journal</option>
+                      <option {% if selected_voucher_type =='Sales' %}selected{% endif %}>Sales</option>
+                      <option {% if selected_voucher_type =='Purchase' %}selected{% endif %}>Purchase</option>
+                    </select>
+                  </div>
+                  <div><label>Party Name</label><input name="party_name" /></div>
+
+                  <div><label>Product Name</label><input name="product_name" id="product_name" placeholder="e.g. car" /></div>
+                  <div><label>HSN Code</label><input name="hsn_code" id="hsn_code" readonly /></div>
+                  <div><label>GST Rate %</label><input name="gst_rate" id="gst_rate" type="number" step="0.01" readonly /></div>
+                  <div><label>Base Amount</label><input name="base_amount" id="base_amount" type="number" step="0.01" value="0" /></div>
+
+                  <div><label>Tax Amount</label><input name="tax_amount" id="tax_amount" type="number" step="0.01" value="0" readonly /></div>
+                  <div><label>Total Amount</label><input name="total_amount" id="total_amount" type="number" step="0.01" value="0" readonly /></div>
+                  <div><label>Invoice Number</label><input name="invoice_number" /></div>
+                  <div><label>Payment Mode</label><input name="payment_mode" placeholder="Cash / Bank / UPI" /></div>
+                </div>
+
+                <div style="margin-top:16px;">
+                  <label>Voucher Lines</label>
+                  <div id="voucherLines">
+                    {% for _ in range(2) %}
+                    <div class="voucher-line">
+                      <div>
+                        <label>Ledger</label>
+                        <select name="ledger_id">
+                          <option value="">Select Ledger</option>
+                          {% for l in ledgers %}
+                          <option value="{{ l.id }}">{{ l.ledger_name }}</option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div>
+                        <label>Debit</label>
+                        <input type="number" step="0.01" name="debit" value="0" />
+                      </div>
+                      <div>
+                        <label>Credit</label>
+                        <input type="number" step="0.01" name="credit" value="0" />
+                      </div>
+                      <div>
+                        <button type="button" class="danger remove-line">Remove</button>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <button type="button" class="secondary" id="addLineBtn">Add Line</button>
+                </div>
+
+                <div style="margin-top:16px;">
+                  <label>Narration</label>
+                  <textarea name="narration" placeholder="Enter narration..."></textarea>
+                </div>
+
+                <div class="actions">
+                  <button type="submit" class="primary">Save Voucher</button>
+                  <button type="reset" class="secondary">Reset</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="panel">
+              <h2>Saved Vouchers</h2>
+              {% if vouchers %}
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Product</th>
+                      <th>HSN</th>
+                      <th>GST%</th>
+                      <th>Invoice</th>
+                      <th>Total</th>
+                      <th>AI</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                      <th>Flags</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in vouchers %}
+                      <tr>
+                        <td>{{ item.voucher.voucher_number }}</td>
+                        <td>{{ item.voucher.date }}</td>
+                        <td>{{ item.voucher.type }}</td>
+                        <td>{{ item.voucher.product_name or '-' }}</td>
+                        <td>{{ item.voucher.hsn_code or '-' }}</td>
+                        <td>{{ item.voucher.gst_rate or 0 }}</td>
+                        <td>{{ item.voucher.invoice_number or '-' }}</td>
+                        <td>{{ "%.2f"|format(item.voucher.total_amount or 0) }}</td>
+                        <td>
+                          <span class="badge {{ item.voucher.ai_risk_level|lower }}">
+                            {{ item.voucher.ai_risk_level }} ({{ item.voucher.ai_risk_score }})
+                          </span>
+                        </td>
+                        <td>{{ item.voucher.ai_category or '-' }}</td>
+                        <td>{{ item.voucher.review_status or 'Pending' }}</td>
+                        <td>{{ item.voucher.ai_flags }}</td>
+                        <td><a href="/voucher/delete/{{ item.voucher.id }}" class="danger">Delete</a></td>
+                      </tr>
+                      <tr>
+                        <td colspan="13">
+                          <div class="explain"><strong>Why flagged:</strong> {{ item.voucher.ai_explanation or '-' }}</div>
+                          <div class="explain"><strong>Suggested fix:</strong> {{ item.voucher.ai_suggested_fix or '-' }}</div>
+                          <div class="explain"><strong>Score breakdown:</strong> {{ item.voucher.ai_score_breakdown or '-' }}</div>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              {% else %}
+                <p class="muted">No vouchers recorded yet.</p>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endif %}
+{% if scanner_result and scanner_result.error %}
+  <div class="panel">
+    <h2>Scanner Error</h2>
+    <div class="explain">{{ scanner_result.error }}</div>
+  </div>
+{% endif %}
+        {% if screen == "scanner" %}
+          {% if not active_company %}
+            <div class="panel">
+              <h2>Invoice Scanner</h2>
+              <p class="muted">Please create or select a company first.</p>
+            </div>
+          {% else %}
+            <div class="panel">
+              <h2>Invoice Scanner</h2>
+              <p class="muted">
+                MVP version: paste OCR/scanned invoice text here. The system extracts invoice number, vendor, item, amount, finds HSN + GST, and creates a voucher.
+              </p>
+              <form method="post" action="/scanner/preview">
+                <div class="grid-2">
+                  <div>
+                    <label>Voucher Type</label>
+                    <select name="voucher_type">
+                      <option value="Purchase">Purchase</option>
+                      <option value="Sales">Sales</option>
+                    </select>
+                  </div>
+                </div>
+                <div style="margin-top: 16px;">
+                  <label>Invoice OCR Text</label>
+                  <textarea name="invoice_text" placeholder="Example:
+Invoice No: INV-203
+Vendor: ABC Motors
+Item: Car
+Date: 2026-03-09
+Amount: 1000000
+Payment Mode: Bank"></textarea>
+                </div>
+                <div class="actions">
+                  <button type="submit" class="primary">Scan & Preview</button>
+                </div>
+              </form>
+            </div>
+
+            {% if scanner_result %}
+              <div class="panel">
+                <h2>Scanner Preview</h2>
+                <div class="scanner-box">
+               <div class="panel">
+  <h2>Upload Invoice File</h2>
+  <p class="muted">Upload image or PDF. OCR will extract text automatically.</p>
+  <form method="post" action="/scanner/upload-preview" enctype="multipart/form-data">
+    <div class="grid-2">
+      <div>
+        <label>Voucher Type</label>
+        <select name="voucher_type">
+          <option value="Purchase">Purchase</option>
+          <option value="Sales">Sales</option>
+        </select>
+      </div>
+      <div>
+        <label>Invoice File</label>
+        <input type="file" name="invoice_file" accept=".png,.jpg,.jpeg,.pdf,.bmp,.tiff,.webp" required>
+      </div>
+    </div>
+    <div class="actions">
+      <button type="submit" class="primary">Upload, OCR & Preview</button>
+    </div>
+  </form>
+</div>}}</p>
+                  <p><strong>Party Name:</strong> {{ scanner_result.party_name or '-' }}</p>
+                  <p><strong>Product:</strong> {{ scanner_result.product_name or '-' }}</p>
+                  <p><strong>Date:</strong> {{ scanner_result.date or '-' }}</p>
+                  <p><strong>Payment Mode:</strong> {{ scanner_result.payment_mode or '-' }}</p>
+                  <p><strong>Base Amount:</strong> ₹{{ "%.2f"|format(scanner_result.base_amount or 0) }}</p>
+                  <p><strong>HSN Code:</strong> {{ scanner_result.hsn_code or '-' }}</p>
+                  <p><strong>GST Rate:</strong> {{ scanner_result.gst_rate or 0 }}%</p>
+                  <p><strong>Tax Amount:</strong> ₹{{ "%.2f"|format(scanner_result.tax_amount or 0) }}</p>
+                  <p><strong>Total Amount:</strong> ₹{{ "%.2f"|format(scanner_result.total_amount or 0) }}</p>
+                </div>
+
+                <form method="post" action="/scanner/create">
+                  <input type="hidden" name="voucher_type" value="{{ scanner_result.voucher_type }}">
+                  <input type="hidden" name="invoice_number" value="{{ scanner_result.invoice_number }}">
+                  <input type="hidden" name="party_name" value="{{ scanner_result.party_name }}">
+                  <input type="hidden" name="product_name" value="{{ scanner_result.product_name }}">
+                  <input type="hidden" name="date" value="{{ scanner_result.date }}">
+                  <input type="hidden" name="payment_mode" value="{{ scanner_result.payment_mode }}">
+                  <input type="hidden" name="base_amount" value="{{ scanner_result.base_amount }}">
+                  <input type="hidden" name="hsn_code" value="{{ scanner_result.hsn_code }}">
+                  <input type="hidden" name="gst_rate" value="{{ scanner_result.gst_rate }}">
+                  <input type="hidden" name="tax_amount" value="{{ scanner_result.tax_amount }}">
+                  <input type="hidden" name="total_amount" value="{{ scanner_result.total_amount }}">
+
+                  <div class="actions">
+                    <button type="submit" class="primary">Create Voucher From Scan</button>
+                  </div>
+                </form>
+              </div>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+
+        {% if screen == "ai" %}
+          <div class="panel">
+            <h2>AI Scrutiny Dashboard</h2>
+            <p class="muted">
+              AI is merged into existing Tally-style modules, not built as a separate product. Same data, extra intelligence.
+            </p>
+
+            <div class="summary-cards">
+              <div class="card"><h3>Total Vouchers Analyzed</h3><p>{{ stats.total or 0 }}</p></div>
+              <div class="card"><h3>High Risk</h3><p>{{ stats.high_count or 0 }}</p></div>
+              <div class="card"><h3>Duplicate Invoices</h3><p>{{ duplicate_invoices or 0 }}</p></div>
+              <div class="card"><h3>High Cash Entries</h3><p>{{ high_cash_entries or 0 }}</p></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2>AI Summary</h2>
+            <p class="muted">{{ ai_summary }}</p>
+          </div>
+
+          <div class="panel">
+            <h2>Compliance Snapshot</h2>
+            <div class="summary-cards">
+              <div class="card"><h3>Avg Risk Score</h3><p>{{ "%.1f"|format(stats.avg_score or 0) }}</p></div>
+              <div class="card"><h3>Medium Risk</h3><p>{{ stats.medium_count or 0 }}</p></div>
+              <div class="card"><h3>Low Risk</h3><p>{{ stats.low_count or 0 }}</p></div>
+              <div class="card"><h3>Missing GSTIN Alerts</h3><p>{{ missing_gstin_count or 0 }}</p></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2>Top Risky Vouchers</h2>
+            {% if risky_vouchers %}
+              <table>
+                <thead>
+                  <tr><th>Voucher No.</th><th>Date</th><th>Type</th><th>Invoice</th><th>Risk</th><th>Score</th><th>Flags</th></tr>
+                </thead>
+                <tbody>
+                  {% for v in risky_vouchers %}
+                  <tr>
+                    <td>{{ v.voucher_number }}</td>
+                    <td>{{ v.date }}</td>
+                    <td>{{ v.type }}</td>
+                    <td>{{ v.invoice_number or '-' }}</td>
+                    <td><span class="badge {{ v.ai_risk_level|lower }}">{{ v.ai_risk_level }}</span></td>
+                    <td>{{ v.ai_risk_score }}</td>
+                    <td>{{ v.ai_flags }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="7">
+                      <div class="explain"><strong>Why flagged:</strong> {{ v.ai_explanation or '-' }}</div>
+                      <div class="explain"><strong>Suggested fix:</strong> {{ v.ai_suggested_fix or '-' }}</div>
+                      <div class="explain"><strong>Score breakdown:</strong> {{ v.ai_score_breakdown or '-' }}</div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="muted">No voucher data available yet for AI scrutiny.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if screen == "risk_alerts" %}
+          <div class="panel">
+            <h2>Risk Alerts</h2>
+            <p class="muted">All vouchers with AI risk flags are listed here.</p>
+
+            {% if risk_alerts %}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Voucher No.</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Party</th>
+                    <th>Invoice</th>
+                    <th>Risk</th>
+                    <th>Category</th>
+                    <th>Flags</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for v in risk_alerts %}
+                  <tr>
+                    <td>{{ v.voucher_number }}</td>
+                    <td>{{ v.date }}</td>
+                    <td>{{ v.type }}</td>
+                    <td>{{ v.party_name or '-' }}</td>
+                    <td>{{ v.invoice_number or '-' }}</td>
+                    <td><span class="badge {{ v.ai_risk_level|lower }}">{{ v.ai_risk_level }} ({{ v.ai_risk_score }})</span></td>
+                    <td>{{ v.ai_category or '-' }}</td>
+                    <td>{{ v.ai_flags }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="8">
+                      <div class="explain"><strong>Why flagged:</strong> {{ v.ai_explanation or '-' }}</div>
+                      <div class="explain"><strong>Suggested fix:</strong> {{ v.ai_suggested_fix or '-' }}</div>
+                      <div class="explain"><strong>Score breakdown:</strong> {{ v.ai_score_breakdown or '-' }}</div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="muted">No risk alerts found.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+        {% if screen == "compliance" %}
+          <div class="panel">
+            <h2>Compliance Check</h2>
+            <p class="muted">This page shows vouchers with missing GST, narration, party name, or invoice details.</p>
+
+            {% if compliance_items %}
+              <table>
+                <thead>
+                  <tr>
+                    <th>Voucher No.</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Party</th>
+                    <th>Invoice</th>
+                    <th>Flags</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for v in compliance_items %}
+                  <tr>
+                    <td>{{ v.voucher_number }}</td>
+                    <td>{{ v.date }}</td>
+                    <td>{{ v.type }}</td>
+                    <td>{{ v.party_name or '-' }}</td>
+                    <td>{{ v.invoice_number or '-' }}</td>
+                    <td>{{ v.ai_flags }}</td>
+                    <td>{{ v.review_status or 'Pending' }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="7">
+                      <div class="explain"><strong>Why flagged:</strong> {{ v.ai_explanation or '-' }}</div>
+                      <div class="explain"><strong>Suggested fix:</strong> {{ v.ai_suggested_fix or '-' }}</div>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="muted">No compliance issues found.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+
+      </main>
+    </div>
+
+    <div class="footer">
+      <span>F2 Change Date</span>
+      <span>F3 Company</span>
+      <span>F4 Contra</span>
+      <span>F5 Payment</span>
+      <span>F6 Receipt</span>
+      <span>F7 Journal</span>
+      <span>F8 Sales</span>
+      <span>F9 Purchase</span>
+      <span>Ctrl + S Save</span>
+    </div>
+  </div>
+
+  <script>
+    function updateClock() {
+      const clock = document.getElementById("clock");
+      if (clock) clock.textContent = new Date().toLocaleString();
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    const voucherDate = document.getElementById("voucherDate");
+    if (voucherDate && !voucherDate.value) {
+      voucherDate.value = new Date().toISOString().slice(0, 10);
+    }
+
+    const voucherNumber = document.getElementById("voucherNumber");
+    if (voucherNumber && !voucherNumber.value) {
+      voucherNumber.value = "V-" + Date.now();
+    }
+
+    async function autoFillHSNAndGST() {
+      const productInput = document.getElementById("product_name");
+      const baseAmountInput = document.getElementById("base_amount");
+      const hsnInput = document.getElementById("hsn_code");
+      const gstRateInput = document.getElementById("gst_rate");
+      const taxAmountInput = document.getElementById("tax_amount");
+      const totalAmountInput = document.getElementById("total_amount");
+
+      if (!productInput || !baseAmountInput || !hsnInput || !gstRateInput || !taxAmountInput || !totalAmountInput) {
+        return;
+      }
+
+      const product = productInput.value.trim();
+      const amount = parseFloat(baseAmountInput.value || "0");
+
+      if (!product) {
+        hsnInput.value = "";
+        gstRateInput.value = 0;
+        taxAmountInput.value = 0;
+        totalAmountInput.value = amount.toFixed(2);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/hsn-lookup?product=${encodeURIComponent(product)}&amount=${encodeURIComponent(amount)}`);
+        const data = await res.json();
+
+        hsnInput.value = data.hsn_code || "";
+        gstRateInput.value = data.gst_rate || 0;
+        taxAmountInput.value = data.tax_amount || 0;
+        totalAmountInput.value = data.total_amount || amount.toFixed(2);
+      } catch (err) {
+        console.error("HSN lookup failed", err);
+      }
+    }
+
+    const productInput = document.getElementById("product_name");
+    const baseAmountInput = document.getElementById("base_amount");
+
+    if (productInput) productInput.addEventListener("input", autoFillHSNAndGST);
+    if (baseAmountInput) baseAmountInput.addEventListener("input", autoFillHSNAndGST);
+
+    const addLineBtn = document.getElementById("addLineBtn");
+    if (addLineBtn) {
+      addLineBtn.addEventListener("click", function() {
+        const container = document.getElementById("voucherLines");
+        const row = document.createElement("div");
+        row.className = "voucher-line";
+        row.innerHTML = `
+          <div>
+            <label>Ledger</label>
+            <select name="ledger_id">
+              <option value="">Select Ledger</option>
+              {% for l in ledgers %}
+              <option value="{{ l.id }}">{{ l.ledger_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Debit</label>
+            <input type="number" step="0.01" name="debit" value="0" />
+          </div>
+          <div>
+            <label>Credit</label>
+            <input type="number" step="0.01" name="credit" value="0" />
+          </div>
+          <div>
+            <button type="button" class="danger remove-line">Remove</button>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    document.addEventListener("click", function(e) {
+      if (e.target.classList.contains("remove-line")) {
+        const rows = document.querySelectorAll(".voucher-line");
+        if (rows.length > 2) {
+          e.target.closest(".voucher-line").remove();
+        }
+      }
+    });
+
+    document.addEventListener("keydown", function(e) {
+      if (e.ctrlKey && e.key.toLowerCase() === "s") {
+        const form = document.querySelector("main form");
+        if (form) {
+          e.preventDefault();
+          form.requestSubmit();
+        }
+      }
+
+      if (e.key === "F3") {
+        e.preventDefault();
+        window.location.href = "/?screen=company";
+      }
+
+      const voucherKeyMap = {
+        F4: "Contra",
+        F5: "Payment",
+        F6: "Receipt",
+        F7: "Journal",
+        F8: "Sales",
+        F9: "Purchase"
+      };
+
+      if (voucherKeyMap[e.key]) {
+        e.preventDefault();
+        window.location.href = "/?screen=voucher&type=" + encodeURIComponent(voucherKeyMap[e.key]);
+      }
+    });
+  </script>
+</body>
+</html>
