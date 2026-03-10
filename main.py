@@ -5,7 +5,9 @@ from fastapi.templating import Jinja2Templates
 import sqlite3
 import re
 import os
-
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 4000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
 templates = Jinja2Templates(directory="templates")
 
