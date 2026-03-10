@@ -1,26 +1,15 @@
-import re
-import uuid
-import shutil
-from pathlib import Path
-
-from fastapi import FastAPI, Request, Form, UploadFile, File
+from contextlib import contextmanager
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-
-from PIL import Image
-import pytesseract
-from pdf2image import convert_from_path
-
-from db import get_conn, fetchone, fetchall, execute, init_db
+import sqlite3
+import re
+import os
 
 app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
+templates = Jinja2Templates(directory="templates")
 
-BASE_DIR = Path(__file__).resolve().parent
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-
-# Vercel writable path
-UPLOAD_DIR = Path("/tmp/uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+DB_NAME = os.getenv("DB_NAME", "tally.db")
 
 DEFAULT_LEDGER_GROUPS = [
     "Capital Account",
@@ -32,6 +21,186 @@ DEFAULT_LEDGER_GROUPS = [
     "Indirect Income",
     "Indirect Expenses"
 ]
+
+
+@contextmanager
+def get_conn():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init_db():
+    with get_conn() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS companies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                mailing_name TEXT,
+                address TEXT,
+                state TEXT,
+                country TEXT DEFAULT 'India',
+                phone TEXT,
+                email TEXT,
+                financial_year_start TEXT,
+                books_from TEXT,
+                currency TEXT DEFAULT '₹',
+                maintain_inventory TEXT DEFAULT 'Yes',
+                enable_gst TEXT DEFAULT 'Yes'
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ledgers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                ledger_name TEXT NOT NULL,
+                group_name TEXT NOT NULL,
+                opening_balance REAL DEFAULT 0,
+                balance_type TEXT DEFAULT 'Debit',
+                gst_applicable TEXT DEFAULT 'No',
+                gst_number TEXT,
+                address TEXT,
+                phone TEXT,
+                email TEXT,
+                UNIQUE(company_id, ledger_name)
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS vouchers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                voucher_number TEXT NOT NULL,
+                date TEXT NOT NULL,
+                type TEXT NOT NULL,
+                narration TEXT,
+                party_name TEXT,
+                payment_mode TEXT,
+                invoice_number TEXT,
+                product_name TEXT,
+                hsn_code TEXT,
+                gst_rate REAL DEFAULT 0,
+                tax_amount REAL DEFAULT 0,
+                base_amount REAL DEFAULT 0,
+                total_amount REAL DEFAULT 0,
+                ai_risk_level TEXT DEFAULT 'Low',
+                ai_risk_score INTEGER DEFAULT 0,
+                ai_flags TEXT DEFAULT '',
+                ai_explanation TEXT DEFAULT '',
+                ai_suggested_fix TEXT DEFAULT '',
+                ai_score_breakdown TEXT DEFAULT '',
+                review_status TEXT DEFAULT 'Pending',
+                ai_category TEXT DEFAULT 'General'
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS voucher_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                voucher_id INTEGER NOT NULL,
+                ledger_id INTEGER NOT NULL,
+                debit REAL DEFAULT 0,
+                credit REAL DEFAULT 0
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ai_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company_id INTEGER NOT NULL,
+                voucher_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                voucher_type TEXT NOT NULL,
+                voucher_number TEXT NOT NULL,
+                party_name TEXT,
+                ledger_name TEXT,
+                amount REAL DEFAULT 0,
+                tax_amount REAL DEFAULT 0,
+                payment_mode TEXT,
+                gstin TEXT,
+                invoice_number TEXT,
+                source_table TEXT DEFAULT 'vouchers',
+                risk_flags TEXT DEFAULT ''
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS hsn_master (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_name TEXT NOT NULL,
+                hsn_code TEXT NOT NULL,
+                gst_rate REAL NOT NULL
+            )
+        """)
+
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ledgers_company ON ledgers(company_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_vouchers_company ON vouchers(company_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_voucher ON voucher_entries(voucher_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_tx_company ON ai_transactions(company_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_tx_voucher ON ai_transactions(voucher_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_hsn_product ON hsn_master(product_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_hsn_code ON hsn_master(hsn_code)")
+
+        existing_cols = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(vouchers)").fetchall()
+        }
+
+        alter_statements = {
+            "ai_score_breakdown": "ALTER TABLE vouchers ADD COLUMN ai_score_breakdown TEXT DEFAULT ''",
+            "review_status": "ALTER TABLE vouchers ADD COLUMN review_status TEXT DEFAULT 'Pending'",
+            "ai_category": "ALTER TABLE vouchers ADD COLUMN ai_category TEXT DEFAULT 'General'",
+            "party_name": "ALTER TABLE vouchers ADD COLUMN party_name TEXT",
+            "payment_mode": "ALTER TABLE vouchers ADD COLUMN payment_mode TEXT",
+            "invoice_number": "ALTER TABLE vouchers ADD COLUMN invoice_number TEXT",
+            "tax_amount": "ALTER TABLE vouchers ADD COLUMN tax_amount REAL DEFAULT 0",
+            "ai_explanation": "ALTER TABLE vouchers ADD COLUMN ai_explanation TEXT DEFAULT ''",
+            "ai_suggested_fix": "ALTER TABLE vouchers ADD COLUMN ai_suggested_fix TEXT DEFAULT ''",
+            "product_name": "ALTER TABLE vouchers ADD COLUMN product_name TEXT",
+            "hsn_code": "ALTER TABLE vouchers ADD COLUMN hsn_code TEXT",
+            "gst_rate": "ALTER TABLE vouchers ADD COLUMN gst_rate REAL DEFAULT 0",
+            "base_amount": "ALTER TABLE vouchers ADD COLUMN base_amount REAL DEFAULT 0",
+            "total_amount": "ALTER TABLE vouchers ADD COLUMN total_amount REAL DEFAULT 0",
+        }
+
+        for col, stmt in alter_statements.items():
+            if col not in existing_cols:
+                conn.execute(stmt)
+
+        seed_hsn_master(conn)
+
+
+def seed_hsn_master(conn):
+    count = conn.execute("SELECT COUNT(*) FROM hsn_master").fetchone()[0]
+    if count > 0:
+        return
+
+    sample_rows = [
+        ("car", "8703", 28),
+        ("motor car", "8703", 28),
+        ("suv", "8703", 28),
+        ("laptop", "8471", 18),
+        ("computer", "8471", 18),
+        ("mobile", "8517", 18),
+        ("smartphone", "8517", 18),
+        ("gold", "7108", 3),
+        ("cement", "2523", 28),
+        ("book", "4901", 0),
+        ("printer", "8443", 18),
+        ("air conditioner", "8415", 28),
+        ("tv", "8528", 18),
+        ("refrigerator", "8418", 18),
+        ("biscuit", "1905", 18),
+    ]
+    conn.executemany(
+        "INSERT INTO hsn_master (product_name, hsn_code, gst_rate) VALUES (?, ?, ?)",
+        sample_rows
+    )
 
 
 @app.on_event("startup")
@@ -51,14 +220,12 @@ def get_active_company(request: Request):
     if not company_id:
         return None
     with get_conn() as conn:
-        return conn.execute(
-            "SELECT * FROM companies WHERE id = ?",
-            (company_id,)
-        ).fetchone()
+        return conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
 
 
 def list_companies():
-    return fetchall("SELECT * FROM companies ORDER BY id DESC")
+    with get_conn() as conn:
+        return conn.execute("SELECT * FROM companies ORDER BY id DESC").fetchall()
 
 
 def list_ledgers(company_id):
@@ -162,7 +329,7 @@ def build_ai_summary(stats, duplicate_invoices, high_cash_entries, missing_gstin
 
 
 def lookup_hsn(product_name: str):
-    if not product_name.strip():
+    if not product_name or not product_name.strip():
         return None
 
     name = product_name.strip().lower()
@@ -729,49 +896,6 @@ def parse_invoice_text(invoice_text: str):
     }
 
 
-def extract_text_from_image(image_path: Path) -> str:
-    image = Image.open(image_path)
-    return pytesseract.image_to_string(image)
-
-
-def extract_text_from_pdf(pdf_path: Path) -> str:
-    pages = convert_from_path(str(pdf_path))
-    texts = []
-    for page in pages:
-        texts.append(pytesseract.image_to_string(page))
-    return "\n".join(texts)
-
-
-def save_upload_file(upload_file: UploadFile) -> Path:
-    suffix = Path(upload_file.filename).suffix.lower()
-    safe_name = f"{uuid.uuid4().hex}{suffix}"
-    destination = UPLOAD_DIR / safe_name
-    with destination.open("wb") as buffer:
-        shutil.copyfileobj(upload_file.file, buffer)
-    return destination
-
-
-def build_scanner_result_from_text(invoice_text: str, voucher_type: str):
-    parsed = parse_invoice_text(invoice_text)
-    hsn_result = calculate_tax_from_product(parsed["product_name"], parsed["base_amount"])
-
-    return {
-        "voucher_type": voucher_type,
-        "invoice_text": invoice_text,
-        "invoice_number": parsed["invoice_number"],
-        "party_name": parsed["party_name"],
-        "product_name": parsed["product_name"],
-        "date": parsed["date"],
-        "payment_mode": parsed["payment_mode"] or "Bank",
-        "base_amount": parsed["base_amount"],
-        "hsn_code": parsed["hsn_code"] or hsn_result["hsn_code"],
-        "gst_rate": parsed["gst_rate"] or hsn_result["gst_rate"],
-        "tax_amount": hsn_result["tax_amount"] if hsn_result["matched"] else 0,
-        "total_amount": hsn_result["total_amount"] if hsn_result["matched"] else parsed["base_amount"],
-        "matched": hsn_result["matched"],
-    }
-
-
 def build_context(request: Request, screen="dashboard", selected_voucher_type="", scanner_result=None):
     active_company = get_active_company(request)
     company_id = active_company["id"] if active_company else None
@@ -806,11 +930,6 @@ def home(request: Request, screen: str = "dashboard", type: str = ""):
         "index.html",
         build_context(request, screen=screen, selected_voucher_type=type)
     )
-
-
-@app.get("/health")
-def health():
-    return {"status": "running"}
 
 
 @app.get("/api/hsn-lookup")
@@ -854,384 +973,3 @@ def create_company_route(
     if not request.cookies.get("active_company_id"):
         response.set_cookie("active_company_id", str(company_id))
     return response
-
-
-@app.get("/company/select/{company_id}")
-def select_company(company_id: int):
-    response = RedirectResponse(url="/?screen=dashboard", status_code=303)
-    response.set_cookie("active_company_id", str(company_id))
-    return response
-
-
-@app.get("/company/delete/{company_id}")
-def delete_company_route(request: Request, company_id: int):
-    with get_conn() as conn:
-        voucher_ids = conn.execute(
-            "SELECT id FROM vouchers WHERE company_id = ?",
-            (company_id,)
-        ).fetchall()
-
-        for row in voucher_ids:
-            conn.execute("DELETE FROM voucher_entries WHERE voucher_id = ?", (row["id"],))
-            conn.execute("DELETE FROM ai_transactions WHERE voucher_id = ?", (row["id"],))
-
-        conn.execute("DELETE FROM vouchers WHERE company_id = ?", (company_id,))
-        conn.execute("DELETE FROM ledgers WHERE company_id = ?", (company_id,))
-        conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
-
-    response = RedirectResponse(url="/?screen=company", status_code=303)
-    if request.cookies.get("active_company_id") == str(company_id):
-        response.delete_cookie("active_company_id")
-    return response
-
-
-@app.post("/ledger")
-def create_ledger_route(
-    request: Request,
-    ledger_name: str = Form(...),
-    group_name: str = Form(...),
-    opening_balance: float = Form(0),
-    balance_type: str = Form("Debit"),
-    gst_applicable: str = Form("No"),
-    gst_number: str = Form(""),
-    address: str = Form(""),
-    phone: str = Form(""),
-    email: str = Form(""),
-):
-    active_company = get_active_company(request)
-    if not active_company:
-        return RedirectResponse(url="/?screen=ledger", status_code=303)
-
-    with get_conn() as conn:
-        existing = conn.execute("""
-            SELECT COUNT(*)
-            FROM ledgers
-            WHERE company_id = ? AND LOWER(ledger_name) = LOWER(?)
-        """, (active_company["id"], ledger_name.strip())).fetchone()[0]
-
-        if existing == 0:
-            conn.execute("""
-                INSERT INTO ledgers (
-                    company_id, ledger_name, group_name, opening_balance,
-                    balance_type, gst_applicable, gst_number, address, phone, email
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                active_company["id"],
-                ledger_name.strip(),
-                group_name,
-                opening_balance,
-                balance_type,
-                gst_applicable,
-                gst_number.strip(),
-                address.strip(),
-                phone.strip(),
-                email.strip()
-            ))
-
-    return RedirectResponse(url="/?screen=ledger", status_code=303)
-
-
-@app.get("/ledger/delete/{ledger_id}")
-def delete_ledger_route(ledger_id: int):
-    execute("DELETE FROM ledgers WHERE id = ?", (ledger_id,))
-    return RedirectResponse(url="/?screen=ledger", status_code=303)
-
-
-@app.post("/voucher")
-async def create_voucher_route(request: Request):
-    active_company = get_active_company(request)
-    if not active_company:
-        return RedirectResponse(url="/?screen=voucher", status_code=303)
-
-    form = await request.form()
-
-    voucher_number = str(form.get("voucherNumber", "")).strip()
-    date = str(form.get("date", "")).strip()
-    voucher_type = str(form.get("type", "")).strip()
-    narration = str(form.get("narration", "")).strip()
-    party_name = str(form.get("party_name", "")).strip()
-    payment_mode = str(form.get("payment_mode", "")).strip()
-    invoice_number = str(form.get("invoice_number", "")).strip()
-    product_name = str(form.get("product_name", "")).strip()
-    hsn_code = str(form.get("hsn_code", "")).strip()
-
-    base_amount = float(form.get("base_amount", "0") or 0)
-    gst_rate = float(form.get("gst_rate", "0") or 0)
-    tax_amount = float(form.get("tax_amount", "0") or 0)
-    total_amount = float(form.get("total_amount", "0") or 0)
-
-    if product_name and (gst_rate == 0 or not hsn_code):
-        hsn_result = calculate_tax_from_product(product_name, base_amount)
-        if hsn_result["matched"]:
-            hsn_code = hsn_result["hsn_code"]
-            gst_rate = hsn_result["gst_rate"]
-            tax_amount = hsn_result["tax_amount"]
-            total_amount = hsn_result["total_amount"]
-
-    ledger_ids = form.getlist("ledger_id")
-    debits = form.getlist("debit")
-    credits = form.getlist("credit")
-
-    cleaned_entries = []
-    for ledger_id, debit, credit in zip(ledger_ids, debits, credits):
-        if not ledger_id:
-            continue
-        d = float(debit or 0)
-        c = float(credit or 0)
-        if d <= 0 and c <= 0:
-            continue
-        cleaned_entries.append({
-            "ledger_id": int(ledger_id),
-            "debit": d,
-            "credit": c
-        })
-
-    if len(cleaned_entries) < 2:
-        return RedirectResponse(url="/?screen=voucher", status_code=303)
-
-    debit_total = sum(x["debit"] for x in cleaned_entries)
-    credit_total = sum(x["credit"] for x in cleaned_entries)
-
-    if round(debit_total, 2) != round(credit_total, 2):
-        return RedirectResponse(url="/?screen=voucher", status_code=303)
-
-    voucher_data = {
-        "voucher_number": voucher_number,
-        "date": date,
-        "type": voucher_type,
-        "narration": narration,
-        "party_name": party_name,
-        "payment_mode": payment_mode,
-        "invoice_number": invoice_number,
-        "tax_amount": tax_amount
-    }
-
-    ai = analyze_voucher(active_company["id"], voucher_data, cleaned_entries)
-
-    with get_conn() as conn:
-        cur = conn.execute("""
-            INSERT INTO vouchers (
-                company_id, voucher_number, date, type, narration,
-                party_name, payment_mode, invoice_number,
-                product_name, hsn_code, gst_rate, tax_amount, base_amount, total_amount,
-                ai_risk_level, ai_risk_score, ai_flags, ai_explanation,
-                ai_suggested_fix, ai_score_breakdown, review_status, ai_category
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            active_company["id"],
-            voucher_number,
-            date,
-            voucher_type,
-            narration,
-            party_name,
-            payment_mode,
-            invoice_number,
-            product_name,
-            hsn_code,
-            gst_rate,
-            tax_amount,
-            base_amount,
-            total_amount,
-            ai["risk_level"],
-            ai["risk_score"],
-            ai["flags"],
-            ai["explanation"],
-            ai["suggested_fix"],
-            ai["score_breakdown"],
-            "Pending",
-            ai["category"]
-        ))
-        voucher_id = cur.lastrowid
-
-        for item in cleaned_entries:
-            conn.execute("""
-                INSERT INTO voucher_entries (voucher_id, ledger_id, debit, credit)
-                VALUES (?, ?, ?, ?)
-            """, (voucher_id, item["ledger_id"], item["debit"], item["credit"]))
-
-    sync_ai_transactions(active_company["id"], voucher_id)
-    return RedirectResponse(url="/?screen=voucher", status_code=303)
-
-
-@app.post("/scanner/preview", response_class=HTMLResponse)
-def scanner_preview(request: Request, invoice_text: str = Form(...), voucher_type: str = Form("Purchase")):
-    scanner_result = build_scanner_result_from_text(invoice_text, voucher_type)
-    return templates.TemplateResponse(
-        "index.html",
-        build_context(request, screen="scanner", scanner_result=scanner_result)
-    )
-
-
-@app.post("/scanner/upload-preview", response_class=HTMLResponse)
-async def scanner_upload_preview(
-    request: Request,
-    voucher_type: str = Form("Purchase"),
-    invoice_file: UploadFile = File(...)
-):
-    active_company = get_active_company(request)
-    if not active_company:
-        return RedirectResponse(url="/?screen=scanner", status_code=303)
-
-    if not invoice_file or not invoice_file.filename:
-        return templates.TemplateResponse(
-            "index.html",
-            build_context(
-                request,
-                screen="scanner",
-                scanner_result={"error": "No file selected."}
-            )
-        )
-
-    suffix = Path(invoice_file.filename).suffix.lower()
-    allowed = {".png", ".jpg", ".jpeg", ".pdf", ".bmp", ".tiff", ".webp"}
-    if suffix not in allowed:
-        return templates.TemplateResponse(
-            "index.html",
-            build_context(
-                request,
-                screen="scanner",
-                scanner_result={
-                    "error": "Unsupported file type. Upload PNG, JPG, JPEG, PDF, BMP, TIFF, or WEBP."
-                }
-            )
-        )
-
-    saved_path = save_upload_file(invoice_file)
-
-    try:
-        if suffix == ".pdf":
-            extracted_text = extract_text_from_pdf(saved_path)
-        else:
-            extracted_text = extract_text_from_image(saved_path)
-
-        scanner_result = build_scanner_result_from_text(extracted_text, voucher_type)
-        scanner_result["uploaded_filename"] = invoice_file.filename
-        scanner_result["saved_file_path"] = str(saved_path)
-        scanner_result["ocr_text"] = extracted_text
-
-        return templates.TemplateResponse(
-            "index.html",
-            build_context(request, screen="scanner", scanner_result=scanner_result)
-        )
-
-    except Exception as e:
-        return templates.TemplateResponse(
-            "index.html",
-            build_context(
-                request,
-                screen="scanner",
-                scanner_result={
-                    "error": f"OCR failed: {str(e)}",
-                    "uploaded_filename": invoice_file.filename
-                }
-            )
-        )
-
-
-@app.post("/scanner/create")
-def scanner_create(
-    request: Request,
-    voucher_type: str = Form("Purchase"),
-    invoice_number: str = Form(""),
-    party_name: str = Form(""),
-    product_name: str = Form(""),
-    date: str = Form(""),
-    payment_mode: str = Form("Bank"),
-    base_amount: float = Form(0),
-    hsn_code: str = Form(""),
-    gst_rate: float = Form(0),
-    tax_amount: float = Form(0),
-    total_amount: float = Form(0),
-):
-    active_company = get_active_company(request)
-    if not active_company:
-        return RedirectResponse(url="/?screen=scanner", status_code=303)
-
-    debit_ledger, credit_ledger = pick_default_ledgers(active_company["id"], voucher_type)
-    if not debit_ledger or not credit_ledger:
-        return RedirectResponse(url="/?screen=scanner", status_code=303)
-
-    voucher_number = f"SCAN-{abs(hash((invoice_number, party_name, date))) % 1000000}"
-    narration = f"Auto-created from invoice scanner for {product_name}".strip()
-
-    cleaned_entries = [
-        {
-            "ledger_id": int(debit_ledger["id"]),
-            "debit": float(total_amount),
-            "credit": 0.0
-        },
-        {
-            "ledger_id": int(credit_ledger["id"]),
-            "debit": 0.0,
-            "credit": float(total_amount)
-        }
-    ]
-
-    voucher_data = {
-        "voucher_number": voucher_number,
-        "date": date or "2026-03-09",
-        "type": voucher_type,
-        "narration": narration,
-        "party_name": party_name,
-        "payment_mode": payment_mode,
-        "invoice_number": invoice_number,
-        "tax_amount": tax_amount
-    }
-
-    ai = analyze_voucher(active_company["id"], voucher_data, cleaned_entries)
-
-    with get_conn() as conn:
-        cur = conn.execute("""
-            INSERT INTO vouchers (
-                company_id, voucher_number, date, type, narration,
-                party_name, payment_mode, invoice_number,
-                product_name, hsn_code, gst_rate, tax_amount, base_amount, total_amount,
-                ai_risk_level, ai_risk_score, ai_flags, ai_explanation,
-                ai_suggested_fix, ai_score_breakdown, review_status, ai_category
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            active_company["id"],
-            voucher_number,
-            date or "2026-03-09",
-            voucher_type,
-            narration,
-            party_name,
-            payment_mode,
-            invoice_number,
-            product_name,
-            hsn_code,
-            gst_rate,
-            tax_amount,
-            base_amount,
-            total_amount,
-            ai["risk_level"],
-            ai["risk_score"],
-            ai["flags"],
-            ai["explanation"],
-            ai["suggested_fix"],
-            ai["score_breakdown"],
-            "Pending",
-            ai["category"]
-        ))
-        voucher_id = cur.lastrowid
-
-        for item in cleaned_entries:
-            conn.execute("""
-                INSERT INTO voucher_entries (voucher_id, ledger_id, debit, credit)
-                VALUES (?, ?, ?, ?)
-            """, (voucher_id, item["ledger_id"], item["debit"], item["credit"]))
-
-    sync_ai_transactions(active_company["id"], voucher_id)
-    return RedirectResponse(url="/?screen=voucher", status_code=303)
-
-
-@app.get("/voucher/delete/{voucher_id}")
-def delete_voucher_route(voucher_id: int):
-    with get_conn() as conn:
-        conn.execute("DELETE FROM voucher_entries WHERE voucher_id = ?", (voucher_id,))
-        conn.execute("DELETE FROM ai_transactions WHERE voucher_id = ?", (voucher_id,))
-        conn.execute("DELETE FROM vouchers WHERE id = ?", (voucher_id,))
-    return RedirectResponse(url="/?screen=voucher", status_code=303)
