@@ -4,13 +4,23 @@ from contextlib import contextmanager
 DB_NAME = "tally.db"
 
 
+def dict_factory(cursor, row):
+    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
+
+
 @contextmanager
 def get_conn():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
+    conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
+    conn.row_factory = dict_factory
     try:
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
         yield conn
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
@@ -18,7 +28,7 @@ def get_conn():
 def execute(query: str, params: tuple = ()):
     with get_conn() as conn:
         cur = conn.execute(query, params)
-        return cur
+        return cur.lastrowid
 
 
 def fetchone(query: str, params: tuple = ()):
@@ -64,7 +74,8 @@ def init_db():
                 address TEXT,
                 phone TEXT,
                 email TEXT,
-                UNIQUE(company_id, ledger_name)
+                UNIQUE(company_id, ledger_name),
+                FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE
             )
         """)
 
@@ -92,7 +103,8 @@ def init_db():
                 ai_suggested_fix TEXT DEFAULT '',
                 ai_score_breakdown TEXT DEFAULT '',
                 review_status TEXT DEFAULT 'Pending',
-                ai_category TEXT DEFAULT 'General'
+                ai_category TEXT DEFAULT 'General',
+                FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE
             )
         """)
 
@@ -102,7 +114,9 @@ def init_db():
                 voucher_id INTEGER NOT NULL,
                 ledger_id INTEGER NOT NULL,
                 debit REAL DEFAULT 0,
-                credit REAL DEFAULT 0
+                credit REAL DEFAULT 0,
+                FOREIGN KEY(voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
+                FOREIGN KEY(ledger_id) REFERENCES ledgers(id) ON DELETE RESTRICT
             )
         """)
 
@@ -122,7 +136,9 @@ def init_db():
                 gstin TEXT,
                 invoice_number TEXT,
                 source_table TEXT DEFAULT 'vouchers',
-                risk_flags TEXT DEFAULT ''
+                risk_flags TEXT DEFAULT '',
+                FOREIGN KEY(company_id) REFERENCES companies(id) ON DELETE CASCADE,
+                FOREIGN KEY(voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE
             )
         """)
 
@@ -138,15 +154,18 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ledgers_company ON ledgers(company_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_vouchers_company ON vouchers(company_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_voucher ON voucher_entries(voucher_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_ledger ON voucher_entries(ledger_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_tx_company ON ai_transactions(company_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_tx_voucher ON ai_transactions(voucher_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_hsn_product ON hsn_master(product_name)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_voucher_invoice_type ON vouchers(company_id, invoice_number, type)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_voucher_number_company ON vouchers(company_id, voucher_number)")
 
         seed_hsn_master(conn)
 
 
 def seed_hsn_master(conn):
-    count = conn.execute("SELECT COUNT(*) FROM hsn_master").fetchone()[0]
+    count = conn.execute("SELECT COUNT(*) AS c FROM hsn_master").fetchone()["c"]
     if count > 0:
         return
 
