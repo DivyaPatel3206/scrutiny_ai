@@ -1,7 +1,5 @@
 import sqlite3
-from pathlib import Path
 
-# Vercel writable location
 DB_PATH = "/tmp/database.db"
 
 def get_conn():
@@ -12,6 +10,24 @@ def get_conn():
 def init_db():
     conn = get_conn()
     cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            mailing_name TEXT,
+            address TEXT,
+            state TEXT,
+            country TEXT,
+            phone TEXT,
+            email TEXT,
+            financial_year_start TEXT,
+            books_from TEXT,
+            currency TEXT,
+            maintain_inventory TEXT,
+            enable_gst TEXT
+        )
+    """)
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS ledgers (
