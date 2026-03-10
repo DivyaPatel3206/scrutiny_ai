@@ -1,7 +1,22 @@
+import os
 import sqlite3
+from pathlib import Path
 from contextlib import contextmanager
 
-DB_NAME = "tally.db"
+# For Render:
+# - Attach persistent disk at /var/data
+# - Then DB will be stored at /var/data/tally.db
+#
+# Local fallback:
+# - Uses project root / tally.db
+
+RENDER_DISK_PATH = "/var/data"
+LOCAL_DB_PATH = Path(__file__).resolve().parent / "tally.db"
+
+if os.path.exists(RENDER_DISK_PATH):
+    DB_NAME = os.path.join(RENDER_DISK_PATH, "tally.db")
+else:
+    DB_NAME = str(LOCAL_DB_PATH)
 
 
 def dict_factory(cursor, row):
@@ -10,8 +25,13 @@ def dict_factory(cursor, row):
 
 @contextmanager
 def get_conn():
+    db_dir = os.path.dirname(DB_NAME)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
     conn = sqlite3.connect(DB_NAME, timeout=30, check_same_thread=False)
     conn.row_factory = dict_factory
+
     try:
         conn.execute("PRAGMA foreign_keys = ON")
         conn.execute("PRAGMA journal_mode = WAL")
@@ -165,7 +185,9 @@ def init_db():
 
 
 def seed_hsn_master(conn):
-    count = conn.execute("SELECT COUNT(*) AS c FROM hsn_master").fetchone()["c"]
+    row = conn.execute("SELECT COUNT(*) AS c FROM hsn_master").fetchone()
+    count = row["c"] if row else 0
+
     if count > 0:
         return
 
