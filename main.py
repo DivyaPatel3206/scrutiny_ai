@@ -1,4 +1,3 @@
-import os
 import uuid
 from pathlib import Path
 
@@ -6,7 +5,7 @@ from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
-from db import get_conn, fetchall, execute, init_db
+from db import fetchall, execute, init_db
 
 # -------------------------------
 # App Initialization
@@ -19,20 +18,16 @@ app = FastAPI(title="Tally Clone + AI Scrutiny + Invoice Scanner")
 # -------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
-TEMPLATES_DIR = BASE_DIR / "templates"
+
+# templates folder
+templates = Jinja2Templates(directory="templates")
 
 # Vercel writable directory
 UPLOAD_DIR = Path("/tmp/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # -------------------------------
-# Templates
-# -------------------------------
-
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-
-# -------------------------------
-# Initialize Database (safe)
+# Initialize Database
 # -------------------------------
 
 @app.on_event("startup")
