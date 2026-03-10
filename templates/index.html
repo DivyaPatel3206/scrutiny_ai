@@ -50,9 +50,7 @@
         linear-gradient(180deg, #fbf6ef 0%, #f2e8dc 100%);
     }
 
-    body {
-      letter-spacing: 0.1px;
-    }
+    body { letter-spacing: 0.1px; }
 
     .app {
       display: grid;
@@ -102,10 +100,6 @@
       display: block;
     }
 
-    .brand-copy {
-      min-width: 0;
-    }
-
     .brand-copy h1 {
       margin: 0;
       font-size: 22px;
@@ -143,9 +137,7 @@
       white-space: nowrap;
     }
 
-    .top-pill strong {
-      color: #fff;
-    }
+    .top-pill strong { color: #fff; }
 
     .main {
       display: grid;
@@ -234,13 +226,6 @@
       background: linear-gradient(180deg, rgba(255,250,242,0.7), rgba(243,235,225,0.96));
     }
 
-    .hero {
-      display: grid;
-      grid-template-columns: 1.3fr 0.9fr;
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-
     .panel {
       background: linear-gradient(180deg, var(--panel), var(--panel-2));
       border: 1px solid var(--border-soft);
@@ -268,9 +253,10 @@
       flex-wrap: wrap;
     }
 
-    .panel-subtitle {
+    .panel-subtitle,
+    .muted {
       color: var(--text-soft);
-      line-height: 1.6;
+      line-height: 1.65;
       margin: 0;
     }
 
@@ -280,12 +266,7 @@
       margin: 0 0 12px;
       color: #4b3429;
       font-weight: 800;
-      max-width: 720px;
-    }
-
-    .muted {
-      color: var(--text-soft);
-      line-height: 1.65;
+      max-width: 780px;
     }
 
     .hero-actions,
@@ -326,7 +307,8 @@
       border: 1px solid #dbc7b5;
     }
 
-    .btn.ghost {
+    .btn.ghost,
+    .nav-open-btn {
       background: rgba(255,255,255,0.75);
       border: 1px solid var(--border);
       color: var(--accent-strong);
@@ -334,7 +316,8 @@
 
     .btn:hover,
     button.primary:hover, button.secondary:hover, button.danger:hover,
-    a.primary:hover, a.secondary:hover, a.danger:hover {
+    a.primary:hover, a.secondary:hover, a.danger:hover,
+    .nav-open-btn:hover {
       transform: translateY(-1px);
     }
 
@@ -410,73 +393,21 @@
       border-radius: 999px;
     }
 
-    .metric-panel {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      height: 100%;
-    }
-
-    .mini-stat {
-      padding: 16px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.78);
-      border: 1px solid var(--border-soft);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .mini-stat h4 {
-      margin: 0 0 8px;
-      font-size: 13px;
-      color: var(--text-soft);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .mini-stat .value {
-      font-size: 26px;
-      font-weight: 800;
-      color: var(--accent-strong);
-    }
-
-    .progress {
-      margin-top: 12px;
-      height: 10px;
-      border-radius: 999px;
-      background: #eadccf;
-      overflow: hidden;
-    }
-
-    .progress > span {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--gold), var(--accent));
-    }
-
-    .panel-note {
-      margin-top: 14px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      border: 1px solid #e8dbc9;
-      background: linear-gradient(180deg, #fff9f2, #f8efe5);
-      color: var(--text-soft);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-
     .section-grid {
       display: grid;
       grid-template-columns: 1.15fr 0.85fr;
       gap: 18px;
     }
 
-    .module-list {
+    .module-list,
+    .insight-list,
+    .screen-stack {
       display: grid;
       gap: 12px;
     }
 
-    .module-item {
+    .module-item,
+    .insight-item {
       display: flex;
       align-items: flex-start;
       gap: 14px;
@@ -505,7 +436,8 @@
       color: var(--accent-strong);
     }
 
-    .module-item p {
+    .module-item p,
+    .insight-item {
       margin: 0;
       font-size: 13px;
       line-height: 1.6;
@@ -539,10 +471,39 @@
       margin-bottom: 14px;
     }
 
-    .toolbar .filters {
+    .toolbar .filters,
+    .quick-open-grid {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .quick-open-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .quick-card {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.74);
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .quick-card h4 {
+      margin: 0 0 8px;
+      color: var(--accent-strong);
+      font-size: 16px;
+    }
+
+    .quick-card p {
+      margin: 0 0 14px;
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.6;
     }
 
     label {
@@ -565,9 +526,7 @@
       transition: all 0.2s ease;
     }
 
-    input::placeholder, textarea::placeholder {
-      color: #9a8579;
-    }
+    input::placeholder, textarea::placeholder { color: #9a8579; }
 
     input:focus, select:focus, textarea:focus {
       border-color: var(--gold);
@@ -601,23 +560,12 @@
       padding: 16px;
     }
 
-    .insight-list {
-      display: grid;
-      gap: 10px;
-      margin-top: 10px;
+    .screen {
+      display: none;
     }
 
-    .insight-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: #fbf6ef;
-      border: 1px solid #ebdfd0;
-      color: var(--text-soft);
-      font-size: 13px;
-      line-height: 1.6;
+    .screen.active {
+      display: block;
     }
 
     table {
@@ -645,9 +593,7 @@
       font-weight: 800;
     }
 
-    tr:hover td {
-      background: #fcf7f0;
-    }
+    tr:hover td { background: #fcf7f0; }
 
     .table-actions {
       display: flex;
@@ -671,8 +617,8 @@
     .footer span { opacity: 0.95; }
 
     @media (max-width: 1200px) {
-      .hero,
-      .section-grid {
+      .section-grid,
+      .quick-open-grid {
         grid-template-columns: 1fr;
       }
 
@@ -683,38 +629,19 @@
     }
 
     @media (max-width: 900px) {
-      .app {
-        grid-template-rows: auto auto auto;
-      }
-
-      .main {
-        grid-template-columns: 1fr;
-      }
-
-      .sidebar {
-        max-height: 320px;
-      }
-
+      .app { grid-template-rows: auto auto auto; }
+      .main { grid-template-columns: 1fr; }
+      .sidebar { max-height: 320px; }
       .summary-cards,
       .grid-2,
       .grid-3,
       .grid-4,
-      .metric-panel {
+      .quick-open-grid {
         grid-template-columns: 1fr;
       }
-
-      .voucher-line {
-        grid-template-columns: 1fr;
-      }
-
-      .topbar {
-        padding: 14px 16px;
-        align-items: flex-start;
-      }
-
-      .brand-copy p {
-        white-space: normal;
-      }
+      .voucher-line { grid-template-columns: 1fr; }
+      .topbar { padding: 14px 16px; align-items: flex-start; }
+      .brand-copy p { white-space: normal; }
     }
   </style>
 </head>
@@ -741,245 +668,230 @@
       <aside class="sidebar">
         <div class="menu-group">
           <div class="menu-title">Overview</div>
-          <a class="menu-btn {% if screen == 'dashboard' %}active{% endif %}" href="/?screen=dashboard"><span>◫</span><span>Executive Dashboard</span></a>
-          <a class="menu-btn {% if screen == 'company' %}active{% endif %}" href="/?screen=company"><span>⌂</span><span>Company Setup</span></a>
+          <a class="menu-btn active" href="#" data-screen="dashboard"><span>◫</span><span>Executive Dashboard</span></a>
+          <a class="menu-btn" href="#" data-screen="company"><span>⌂</span><span>Company Setup</span></a>
         </div>
 
         <div class="menu-group">
           <div class="menu-title">Accounting Core</div>
-          <a class="menu-btn {% if screen == 'ledger' %}active{% endif %}" href="/?screen=ledger"><span>≣</span><span>Ledger Management</span></a>
-          <a class="menu-btn {% if screen == 'voucher' %}active{% endif %}" href="/?screen=voucher"><span>✎</span><span>Voucher Entry</span></a>
+          <a class="menu-btn" href="#" data-screen="ledger"><span>≣</span><span>Ledger Management</span></a>
+          <a class="menu-btn" href="#" data-screen="voucher"><span>✎</span><span>Voucher Entry</span></a>
         </div>
 
         <div class="menu-group">
           <div class="menu-title">Automation</div>
-          <a class="menu-btn {% if screen == 'scanner' %}active{% endif %}" href="/?screen=scanner"><span>⌁</span><span>Invoice Scanner</span></a>
-          <a class="menu-btn" href="#hsn"><span>⌗</span><span>HSN & GST Mapping</span></a>
+          <a class="menu-btn" href="#" data-screen="scanner"><span>⌁</span><span>Invoice Scanner</span></a>
+          <a class="menu-btn" href="#" data-screen="mapping"><span>⌗</span><span>HSN & GST Mapping</span></a>
         </div>
 
         <div class="menu-group">
           <div class="menu-title">AI Assurance</div>
-          <a class="menu-btn {% if screen == 'ai' %}active{% endif %}" href="/?screen=ai"><span>◈</span><span>AI Dashboard</span></a>
-          <a class="menu-btn {% if screen == 'risk_alerts' %}active{% endif %}" href="/?screen=risk_alerts"><span>⚠</span><span>Risk Alerts</span></a>
-          <a class="menu-btn {% if screen == 'compliance' %}active{% endif %}" href="/?screen=compliance"><span>✓</span><span>Compliance Check</span></a>
+          <a class="menu-btn" href="#" data-screen="ai"><span>◈</span><span>AI Dashboard</span></a>
+          <a class="menu-btn" href="#" data-screen="risk"><span>⚠</span><span>Risk Alerts</span></a>
+          <a class="menu-btn" href="#" data-screen="compliance"><span>✓</span><span>Compliance Check</span></a>
         </div>
       </aside>
 
       <main class="workspace">
-        <section class="hero">
+        <section class="screen active" id="screen-dashboard">
           <div class="panel">
             <span class="badge info">Enterprise-ready finance workspace</span>
             <h2 class="hero-title">Professional accounting operations, compliance intelligence, and invoice automation in one workspace.</h2>
             <p class="muted">
-              AccuLedger blends a familiar accounting workflow with a premium fintech interface. Manage ledgers,
-              process vouchers, scan invoices, and monitor AI risk signals through a warm, trustworthy enterprise UI.
+              AccuLedger blends a familiar accounting workflow with a premium fintech interface. Use the navigation menu to open only the module you want to work on.
             </p>
             <div class="hero-actions">
-              <a href="/?screen=voucher" class="btn primary">Open Voucher Console</a>
-              <a href="/?screen=ai" class="btn secondary">View AI Dashboard</a>
-              <a href="/?screen=scanner" class="btn ghost">Launch Invoice Scanner</a>
-            </div>
-            <div class="panel-note">
-              Built for firms that want the familiarity of classical bookkeeping with modern automation, audit readiness,
-              and visual clarity for finance teams.
+              <button class="btn primary nav-open-btn" data-screen="voucher">Open Voucher Console</button>
+              <button class="btn secondary nav-open-btn" data-screen="ai">View AI Dashboard</button>
+              <button class="btn ghost nav-open-btn" data-screen="scanner">Launch Invoice Scanner</button>
             </div>
           </div>
 
           <div class="panel">
             <div class="panel-head">
               <div>
-                <h2 style="margin-bottom:6px;">Business Health</h2>
-                <p class="panel-subtitle">Live finance and compliance metrics for the active company.</p>
+                <h2>Executive Snapshot</h2>
+                <p class="panel-subtitle">A premium dashboard styled for controllers, founders, and finance teams.</p>
               </div>
-              <span class="badge low">Operationally Stable</span>
+              <span class="badge">Live Overview</span>
             </div>
-            <div class="metric-panel">
-              <div class="mini-stat">
-                <h4>Compliance Score</h4>
-                <div class="value">94%</div>
-                <div class="progress"><span style="width:94%"></span></div>
+            <div class="summary-cards">
+              <div class="card">
+                <h3>Total Companies</h3>
+                <p>{{ summary.company_count if summary else 4 }}</p>
+                <small>Multi-entity workspace configuration</small>
+                <div class="stat-trend">↗ +12% onboarding</div>
               </div>
-              <div class="mini-stat">
-                <h4>AI Review Coverage</h4>
-                <div class="value">88%</div>
-                <div class="progress"><span style="width:88%"></span></div>
+              <div class="card">
+                <h3>Active Ledgers</h3>
+                <p>{{ summary.ledger_count if summary else 148 }}</p>
+                <small>Chart of accounts with GST-aware structure</small>
+                <div class="stat-trend">↗ Cleanly reconciled</div>
               </div>
-              <div class="mini-stat">
-                <h4>Pending Reviews</h4>
-                <div class="value">07</div>
-                <div class="progress"><span style="width:35%"></span></div>
+              <div class="card">
+                <h3>Vouchers Processed</h3>
+                <p>{{ summary.voucher_count if summary else 682 }}</p>
+                <small>Daily bookkeeping and transaction workflow</small>
+                <div class="stat-trend">↗ Faster by AI</div>
               </div>
-              <div class="mini-stat">
-                <h4>Scanner Accuracy</h4>
-                <div class="value">97%</div>
-                <div class="progress"><span style="width:97%"></span></div>
+              <div class="card">
+                <h3>Total Debit / Credit</h3>
+                <p>₹{{ "%.2f"|format(summary.debit_total) if summary else '24,86,540.00' }}</p>
+                <small>Controlled transaction volume visibility</small>
+                <div class="stat-trend">↗ Balanced books</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Quick Open</h2>
+                <p class="panel-subtitle">Click any module below to open it directly.</p>
+              </div>
+            </div>
+            <div class="quick-open-grid">
+              <div class="quick-card">
+                <h4>Company Setup</h4>
+                <p>Create a company profile, financial year, GST status, and business identity details.</p>
+                <button class="btn secondary nav-open-btn" data-screen="company">Open Company Setup</button>
+              </div>
+              <div class="quick-card">
+                <h4>Voucher Entry</h4>
+                <p>Post transactions with debit-credit lines, tax mapping, and narration support.</p>
+                <button class="btn secondary nav-open-btn" data-screen="voucher">Open Voucher Entry</button>
+              </div>
+              <div class="quick-card">
+                <h4>Invoice Scanner</h4>
+                <p>Upload invoice images or PDFs and preview extracted OCR content before posting.</p>
+                <button class="btn secondary nav-open-btn" data-screen="scanner">Open Scanner</button>
               </div>
             </div>
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Executive Snapshot</h2>
-              <p class="panel-subtitle">A premium dashboard styled for controllers, founders, and finance teams.</p>
+        <section class="screen" id="screen-company">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Company Setup</h2>
+                <p class="panel-subtitle">Create and manage business profiles inside AccuLedger.</p>
+              </div>
+              <span class="badge info">Master Data</span>
             </div>
-            <span class="badge">Live Overview</span>
-          </div>
-          <div class="summary-cards">
-            <div class="card">
-              <h3>Total Companies</h3>
-              <p>{{ summary.company_count if summary else 4 }}</p>
-              <small>Multi-entity workspace configuration</small>
-              <div class="stat-trend">↗ +12% onboarding</div>
-            </div>
-            <div class="card">
-              <h3>Active Ledgers</h3>
-              <p>{{ summary.ledger_count if summary else 148 }}</p>
-              <small>Chart of accounts with GST-aware structure</small>
-              <div class="stat-trend">↗ Cleanly reconciled</div>
-            </div>
-            <div class="card">
-              <h3>Vouchers Processed</h3>
-              <p>{{ summary.voucher_count if summary else 682 }}</p>
-              <small>Daily bookkeeping and transaction workflow</small>
-              <div class="stat-trend">↗ Faster by AI</div>
-            </div>
-            <div class="card">
-              <h3>Total Debit / Credit</h3>
-              <p>₹{{ "%.2f"|format(summary.debit_total) if summary else '24,86,540.00' }}</p>
-              <small>Controlled transaction volume visibility</small>
-              <div class="stat-trend">↗ Balanced books</div>
-            </div>
+            <form>
+              <div class="grid-2">
+                <div><label>Company Name</label><input placeholder="AccuLedger Pvt Ltd" /></div>
+                <div><label>Mailing Name</label><input placeholder="AccuLedger Finance Desk" /></div>
+                <div><label>Address</label><input placeholder="Business address" /></div>
+                <div><label>State</label><input placeholder="Gujarat" /></div>
+                <div><label>Country</label><input value="India" /></div>
+                <div><label>Phone</label><input placeholder="+91 XXXXX XXXXX" /></div>
+                <div><label>Email</label><input type="email" placeholder="finance@acculedger.com" /></div>
+                <div><label>Financial Year Start</label><input type="date" /></div>
+                <div><label>Books Beginning From</label><input type="date" /></div>
+                <div><label>Currency Symbol</label><input value="₹" /></div>
+                <div><label>Maintain Inventory</label><select><option>Yes</option><option>No</option></select></div>
+                <div><label>Enable GST</label><select><option>Yes</option><option>No</option></select></div>
+              </div>
+              <div class="actions">
+                <button type="button" class="primary">Save Company</button>
+                <button type="button" class="secondary">Reset</button>
+              </div>
+            </form>
           </div>
         </section>
 
-        <section class="section-grid">
-          <div>
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <h2>Core Product Modules</h2>
-                  <p class="panel-subtitle">Professional workflows built into a single AccuLedger experience.</p>
-                </div>
-                <span class="badge info">Modular UI</span>
+        <section class="screen" id="screen-ledger">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Ledger Management</h2>
+                <p class="panel-subtitle">Create structured accounting masters with tax details and opening balances.</p>
               </div>
-              <div class="module-list">
-                <div class="module-item">
-                  <div class="module-icon">≣</div>
-                  <div>
-                    <h4>Ledger Management</h4>
-                    <p>Create structured accounting masters, manage balance groups, GST details, and opening balances with an enterprise-ready input layout.</p>
-                  </div>
-                </div>
-                <div class="module-item">
-                  <div class="module-icon">✎</div>
-                  <div>
-                    <h4>Voucher Operations</h4>
-                    <p>Enter transactions through a guided voucher form with debit-credit lines, product mapping, HSN lookup, tax computation, and narration controls.</p>
-                  </div>
-                </div>
-                <div class="module-item">
-                  <div class="module-icon">⌁</div>
-                  <div>
-                    <h4>Invoice Scanner</h4>
-                    <p>Transform OCR text or uploaded invoices into accounting entries with auto-extraction of invoice number, party, amount, HSN code, and GST rate.</p>
-                  </div>
-                </div>
-                <div class="module-item">
-                  <div class="module-icon">◈</div>
-                  <div>
-                    <h4>AI Compliance Dashboard</h4>
-                    <p>Monitor duplicate invoices, high-risk vouchers, missing GSTIN warnings, anomaly signals, and review suggestions inside a premium audit-style dashboard.</p>
-                  </div>
-                </div>
-              </div>
+              <span class="badge">Accounting Core</span>
             </div>
-
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <h2>Voucher Entry Experience</h2>
-                  <p class="panel-subtitle">Designed to feel structured, fast, and reliable.</p>
-                </div>
-                <span class="badge medium">Preview Layout</span>
+            <form>
+              <div class="grid-2">
+                <div><label>Ledger Name</label><input placeholder="Sales Account" /></div>
+                <div><label>Group</label><select><option>Sales Accounts</option><option>Current Assets</option></select></div>
+                <div><label>Opening Balance</label><input type="number" value="0" /></div>
+                <div><label>Balance Type</label><select><option>Debit</option><option>Credit</option></select></div>
+                <div><label>GST Applicable</label><select><option>No</option><option>Yes</option></select></div>
+                <div><label>GST Number</label><input placeholder="24ABCDE1234F1Z5" /></div>
+                <div><label>Address</label><input placeholder="Ledger address" /></div>
+                <div><label>Email</label><input type="email" placeholder="ledger@email.com" /></div>
               </div>
+              <div class="actions">
+                <button type="button" class="primary">Save Ledger</button>
+                <button type="button" class="secondary">Reset</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-voucher">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Voucher Entry</h2>
+                <p class="panel-subtitle">Designed to feel structured, fast, and reliable.</p>
+              </div>
+              <span class="badge medium">Transaction Workspace</span>
+            </div>
+            <form>
+              <div class="grid-4">
+                <div><label>Voucher Number</label><input value="V-20260310-001" /></div>
+                <div><label>Date</label><input type="date" value="2026-03-10" /></div>
+                <div><label>Voucher Type</label><select><option>Sales</option><option>Purchase</option><option>Receipt</option><option>Payment</option></select></div>
+                <div><label>Party Name</label><input value="Riverside Motors Pvt Ltd" /></div>
+                <div><label>Product Name</label><input value="Commercial Vehicle" /></div>
+                <div><label>HSN Code</label><input value="8704" readonly /></div>
+                <div><label>GST Rate %</label><input value="28.00" readonly /></div>
+                <div><label>Base Amount</label><input value="1250000.00" /></div>
+                <div><label>Tax Amount</label><input value="350000.00" readonly /></div>
+                <div><label>Total Amount</label><input value="1600000.00" readonly /></div>
+                <div><label>Invoice Number</label><input value="INV-AL-204" /></div>
+                <div><label>Payment Mode</label><input value="Bank Transfer" /></div>
+              </div>
+              <div style="margin-top:16px;">
+                <label>Voucher Lines</label>
+                <div class="voucher-line">
+                  <div><label>Ledger</label><select><option>Sales Account</option></select></div>
+                  <div><label>Debit</label><input value="0.00" /></div>
+                  <div><label>Credit</label><input value="1600000.00" /></div>
+                  <div><button type="button" class="danger">Remove</button></div>
+                </div>
+                <div class="voucher-line">
+                  <div><label>Ledger</label><select><option>Debtor Account</option></select></div>
+                  <div><label>Debit</label><input value="1600000.00" /></div>
+                  <div><label>Credit</label><input value="0.00" /></div>
+                  <div><button type="button" class="danger">Remove</button></div>
+                </div>
+              </div>
+              <div style="margin-top:16px;">
+                <label>Narration</label>
+                <textarea>Vehicle sale entry generated with mapped HSN and GST values. Routed for AI compliance review.</textarea>
+              </div>
+              <div class="actions">
+                <button type="button" class="primary">Save Voucher</button>
+                <button type="button" class="secondary">Add Line</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-scanner">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Invoice Scanner</h2>
+                <p class="panel-subtitle">Upload invoice files directly instead of using preloaded content.</p>
+              </div>
+              <span class="badge low">OCR Ready</span>
+            </div>
+            <div class="scanner-box">
               <form>
-                <div class="grid-4">
-                  <div><label>Voucher Number</label><input value="V-20260310-001" /></div>
-                  <div><label>Date</label><input type="date" value="2026-03-10" /></div>
-                  <div>
-                    <label>Voucher Type</label>
-                    <select>
-                      <option>Sales</option>
-                      <option>Purchase</option>
-                      <option>Receipt</option>
-                      <option>Payment</option>
-                    </select>
-                  </div>
-                  <div><label>Party Name</label><input value="Riverside Motors Pvt Ltd" /></div>
-                  <div><label>Product Name</label><input value="Commercial Vehicle" /></div>
-                  <div><label>HSN Code</label><input value="8704" readonly /></div>
-                  <div><label>GST Rate %</label><input value="28.00" readonly /></div>
-                  <div><label>Base Amount</label><input value="1250000.00" /></div>
-                  <div><label>Tax Amount</label><input value="350000.00" readonly /></div>
-                  <div><label>Total Amount</label><input value="1600000.00" readonly /></div>
-                  <div><label>Invoice Number</label><input value="INV-AL-204" /></div>
-                  <div><label>Payment Mode</label><input value="Bank Transfer" /></div>
-                </div>
-                <div style="margin-top:16px;">
-                  <label>Voucher Lines</label>
-                  <div class="voucher-line">
-                    <div><label>Ledger</label><select><option>Sales Account</option></select></div>
-                    <div><label>Debit</label><input value="0.00" /></div>
-                    <div><label>Credit</label><input value="1600000.00" /></div>
-                    <div><button type="button" class="danger">Remove</button></div>
-                  </div>
-                  <div class="voucher-line">
-                    <div><label>Ledger</label><select><option>Debtor Account</option></select></div>
-                    <div><label>Debit</label><input value="1600000.00" /></div>
-                    <div><label>Credit</label><input value="0.00" /></div>
-                    <div><button type="button" class="danger">Remove</button></div>
-                  </div>
-                </div>
-                <div style="margin-top:16px;">
-                  <label>Narration</label>
-                  <textarea>Vehicle sale entry generated with mapped HSN and GST values. Routed for AI compliance review.</textarea>
-                </div>
-                <div class="actions">
-                  <button type="button" class="primary">Save Voucher</button>
-                  <button type="button" class="secondary">Add Line</button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <div>
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <h2>AI Review Insights</h2>
-                  <p class="panel-subtitle">Explainable compliance signals with suggested actions.</p>
-                </div>
-                <span class="badge high">2 Critical Alerts</span>
-              </div>
-              <div class="insight-list">
-                <div class="insight-item"><strong>Duplicate Invoice Risk:</strong>&nbsp;Invoice INV-AL-204 appears similar to an earlier sales entry from the same counterparty. Recommended to verify before final posting.</div>
-                <div class="insight-item"><strong>High Cash Threshold:</strong>&nbsp;One purchase voucher crossed the configured cash exposure threshold and has been marked for review.</div>
-                <div class="insight-item"><strong>Missing GSTIN:</strong>&nbsp;Three ledger masters are missing GST identification details in tax-enabled mode.</div>
-                <div class="insight-item"><strong>Narration Quality:</strong>&nbsp;Seven recent entries have weak descriptions that reduce audit clarity.</div>
-              </div>
-            </div>
-
-            <div class="panel" id="hsn">
-              <div class="panel-head">
-                <div>
-                  <h2>Invoice Scanner Preview</h2>
-                  <p class="panel-subtitle">A premium upload flow aligned with the AccuLedger visual system.</p>
-                </div>
-                <span class="badge low">OCR Ready</span>
-              </div>
-              <div class="scanner-box">
                 <div class="grid-2">
                   <div>
                     <label>Voucher Type</label>
@@ -990,106 +902,109 @@
                   </div>
                   <div>
                     <label>Invoice File</label>
-                    <input type="file" />
+                    <input type="file" accept=".png,.jpg,.jpeg,.pdf,.bmp,.tiff,.webp" />
                   </div>
                 </div>
                 <div style="margin-top:16px;">
-                  <label>Invoice OCR Text</label>
-                  <textarea>Invoice No: INV-9012
-Vendor: SilverOak Supplies
-Item: Industrial Monitor
-Date: 2026-03-10
-Amount: 85000
-Payment Mode: UPI</textarea>
+                  <label>Paste OCR Text (Optional)</label>
+                  <textarea placeholder="Paste extracted invoice text here only if you already have OCR content."></textarea>
                 </div>
                 <div class="actions">
-                  <button type="button" class="primary">Scan & Preview</button>
-                  <button type="button" class="secondary">Upload PDF</button>
+                  <button type="button" class="primary">Upload & Preview</button>
+                  <button type="button" class="secondary">Clear</button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2>Recent Voucher Intelligence</h2>
-              <p class="panel-subtitle">A professional audit-style table for transactions and AI review states.</p>
-            </div>
-            <div class="toolbar">
-              <div class="filters">
-                <span class="badge">Today</span>
-                <span class="badge info">AI Reviewed</span>
-                <span class="badge medium">Needs Attention</span>
+        <section class="screen" id="screen-mapping">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>HSN & GST Mapping</h2>
+                <p class="panel-subtitle">Maintain product classification and tax percentage mapping for auto-fill workflows.</p>
               </div>
+              <span class="badge info">Tax Configuration</span>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Product</th><th>HSN Code</th><th>GST Rate</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+    
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-ai">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>AI Dashboard</h2>
+                <p class="panel-subtitle">Explainable compliance signals with suggested actions.</p>
+              </div>
+              <span class="badge high">2 Critical Alerts</span>
+            </div>
+            <div class="insight-list">
+              <div class="insight-item"><strong>Duplicate Invoice Risk:</strong>&nbsp;Invoice INV-AL-204 appears similar to an earlier sales entry from the same counterparty. Recommended to verify before final posting.</div>
+              <div class="insight-item"><strong>High Cash Threshold:</strong>&nbsp;One purchase voucher crossed the configured cash exposure threshold and has been marked for review.</div>
+              <div class="insight-item"><strong>Missing GSTIN:</strong>&nbsp;Three ledger masters are missing GST identification details in tax-enabled mode.</div>
+              <div class="insight-item"><strong>Narration Quality:</strong>&nbsp;Seven recent entries have weak descriptions that reduce audit clarity.</div>
             </div>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Voucher No.</th>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Party</th>
-                <th>Invoice</th>
-                <th>Total</th>
-                <th>AI Risk</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>V-20260310-001</td>
-                <td>2026-03-10</td>
-                <td>Sales</td>
-                <td>Riverside Motors Pvt Ltd</td>
-                <td>INV-AL-204</td>
-                <td>₹16,00,000.00</td>
-                <td><span class="badge medium">Medium (62)</span></td>
-                <td>Pending Review</td>
-                <td>
-                  <div class="table-actions">
-                    <a href="#" class="secondary">Open</a>
-                    <a href="#" class="danger">Flag</a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td>V-20260310-002</td>
-                <td>2026-03-10</td>
-                <td>Purchase</td>
-                <td>SilverOak Supplies</td>
-                <td>INV-9012</td>
-                <td>₹1,00,300.00</td>
-                <td><span class="badge low">Low (21)</span></td>
-                <td>AI Cleared</td>
-                <td>
-                  <div class="table-actions">
-                    <a href="#" class="secondary">Open</a>
-                    <a href="#" class="primary">Approve</a>
-                  </div>
-                </td>
-              </tr>
-              <tr>
-                <td>V-20260310-003</td>
-                <td>2026-03-10</td>
-                <td>Payment</td>
-                <td>Urban Fabricators</td>
-                <td>PAY-4482</td>
-                <td>₹4,75,000.00</td>
-                <td><span class="badge high">High (84)</span></td>
-                <td>Escalated</td>
-                <td>
-                  <div class="table-actions">
-                    <a href="#" class="secondary">Open</a>
-                    <a href="#" class="danger">Investigate</a>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        </section>
+
+        <section class="screen" id="screen-risk">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Risk Alerts</h2>
+                <p class="panel-subtitle">A professional audit-style table for transactions and AI review states.</p>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Voucher No.</th>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Party</th>
+                  <th>Invoice</th>
+                  <th>Total</th>
+                  <th>AI Risk</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="screen" id="screen-compliance">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>Compliance Check</h2>
+                <p class="panel-subtitle">Review GST, narration, invoice details, and master completeness from one place.</p>
+              </div>
+              <span class="badge medium">Review Queue</span>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Check</th><th>Issue Count</th><th>Priority</th><th>Suggested Action</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Missing GSTIN</td><td>3</td><td><span class="badge high">High</span></td><td>Update ledger tax profiles</td></tr>
+                <tr><td>Weak Narration</td><td>7</td><td><span class="badge medium">Medium</span></td><td>Improve transaction descriptions</td></tr>
+                <tr><td>Invoice Reference Missing</td><td>2</td><td><span class="badge medium">Medium</span></td><td>Verify source document IDs</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
     </div>
@@ -1110,13 +1025,30 @@ Payment Mode: UPI</textarea>
   <script>
     function updateClock() {
       const clock = document.getElementById('clock');
-      if (clock) {
-        clock.textContent = new Date().toLocaleString();
-      }
+      if (clock) clock.textContent = new Date().toLocaleString();
     }
+
+    function openScreen(screenName) {
+      document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.toggle('active', screen.id === `screen-${screenName}`);
+      });
+
+      document.querySelectorAll('.menu-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.screen === screenName);
+      });
+    }
+
+    document.querySelectorAll('.menu-btn, .nav-open-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const screenName = this.dataset.screen;
+        if (screenName) openScreen(screenName);
+      });
+    });
 
     updateClock();
     setInterval(updateClock, 1000);
+    openScreen('dashboard');
   </script>
 </body>
 </html>
