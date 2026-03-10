@@ -7,75 +7,90 @@ from fastapi.templating import Jinja2Templates
 
 from db import fetchall, execute, init_db
 
-# -------------------------------
-# App Initialization
-# -------------------------------
-
 app = FastAPI(title="Tally Clone + AI Scrutiny + Invoice Scanner")
 
-# -------------------------------
-# Paths
-# -------------------------------
-
 BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# templates folder
-templates = Jinja2Templates(directory="templates")
-
-# Vercel writable directory
 UPLOAD_DIR = Path("/tmp/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# -------------------------------
-# Initialize Database
-# -------------------------------
 
 @app.on_event("startup")
 def startup():
     init_db()
 
-# -------------------------------
-# Home Page
-# -------------------------------
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "screen": "dashboard"
-        }
-    )
+def home(request: Request, screen: str = "dashboard", type: str = "Journal"):
+    ledgers = fetchall("SELECT * FROM ledgers")
 
-# -------------------------------
-# Add Ledger
-# -------------------------------
+    context = {
+        "request": request,
+        "screen": screen,
+        "selected_voucher_type": type,
+
+        # values your template expects
+        "active_company": None,
+        "companies": [],
+        "ledgers": ledgers,
+        "vouchers": [],
+        "risk_alerts": [],
+        "compliance_items": [],
+        "risky_vouchers": [],
+        "scanner_result": None,
+
+        "summary": {
+            "company_count": 0,
+            "ledger_count": len(ledgers),
+            "voucher_count": 0,
+            "debit_total": 0.0,
+        },
+
+        "stats": {
+            "total": 0,
+            "high_count": 0,
+            "medium_count": 0,
+            "low_count": 0,
+            "avg_score": 0.0,
+        },
+
+        "duplicate_invoices": 0,
+        "high_cash_entries": 0,
+        "missing_gstin_count": 0,
+        "ai_summary": "No AI analysis available yet.",
+        "default_ledger_groups": [
+            "Capital Account",
+            "Current Assets",
+            "Current Liabilities",
+            "Sales Accounts",
+            "Purchase Accounts",
+            "Bank Accounts",
+            "Indirect Income",
+            "Indirect Expenses",
+        ],
+    }
+
+    return templates.TemplateResponse("index.html", context)
+
 
 @app.post("/ledger/add")
 def add_ledger(name: str = Form(...), type: str = Form(...)):
     execute(
-        "INSERT INTO ledgers(name,type) VALUES (?,?)",
+        "INSERT INTO ledgers(name, type) VALUES (?, ?)",
         (name, type)
     )
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(url="/?screen=ledger", status_code=303)
 
-# -------------------------------
-# List Ledgers
-# -------------------------------
 
 @app.get("/ledgers")
 def get_ledgers():
     data = fetchall("SELECT * FROM ledgers")
     return {"ledgers": data}
 
-# -------------------------------
-# Upload Invoice
-# -------------------------------
 
 @app.post("/upload-invoice")
 async def upload_invoice(file: UploadFile = File(...)):
-
     file_id = str(uuid.uuid4())
     file_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
 
@@ -87,9 +102,6 @@ async def upload_invoice(file: UploadFile = File(...)):
         "file": str(file_path)
     })
 
-# -------------------------------
-# Health Check
-# -------------------------------
 
 @app.get("/health")
 def health():
