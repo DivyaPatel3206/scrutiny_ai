@@ -1,9 +1,10 @@
+from collections import defaultdict
+import re
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import re
 
-from db import get_conn, init_db, execute
+from db import get_conn, init_db
 
 app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
 templates = Jinja2Templates(directory="templates")
@@ -22,9 +23,18 @@ DEFAULT_LEDGER_GROUPS = [
 
 @app.on_event("startup")
 def startup():
-    print("Startup begin")
     init_db()
-    print("Startup done")
+
+
+def clean_text(value):
+    return str(value or "").strip()
+
+
+def to_float(value, default=0.0):
+    try:
+        return float(value or default)
+    except (TypeError, ValueError):
+        return float(default)
 
 
 def get_active_company_id(request: Request):
@@ -39,7 +49,8 @@ def get_active_company(request: Request):
     if not company_id:
         return None
     with get_conn() as conn:
-        return conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        company = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+        return company
 
 
 def list_companies():
@@ -51,10 +62,11 @@ def list_ledgers(company_id):
     if not company_id:
         return []
     with get_conn() as conn:
-        return conn.execute(
-            "SELECT * FROM ledgers WHERE company_id = ? ORDER BY ledger_name ASC",
-            (company_id,)
-        ).fetchall()
+        return conn.execute("""
+            SELECT * FROM ledgers
+            WHERE company_id = ?
+            ORDER BY ledger_name COLLATE NOCASE ASC
+        """, (company_id,)).fetchall()
 
 
 def get_ledger_map(company_id):
@@ -73,22 +85,31 @@ def list_vouchers(company_id):
             ORDER BY id DESC
         """, (company_id,)).fetchall()
 
-        result = []
-        for voucher in vouchers:
-            entries = conn.execute("""
-                SELECT ve.*, l.ledger_name, l.group_name
-                FROM voucher_entries ve
-                JOIN ledgers l ON l.id = ve.ledger_id
-                WHERE ve.voucher_id = ?
-                ORDER BY ve.id ASC
-            """, (voucher["id"],)).fetchall()
-            result.append({"voucher": voucher, "entries": entries})
-        return result
+        if not vouchers:
+            return []
+
+        voucher_ids = [v["id"] for v in vouchers]
+        placeholders = ",".join(["?"] * len(voucher_ids))
+
+        entries = conn.execute(f"""
+            SELECT ve.*, l.ledger_name, l.group_name, v.company_id
+            FROM voucher_entries ve
+            JOIN ledgers l ON l.id = ve.ledger_id
+            JOIN vouchers v ON v.id = ve.voucher_id
+            WHERE ve.voucher_id IN ({placeholders})
+            ORDER BY ve.voucher_id DESC, ve.id ASC
+        """, tuple(voucher_ids)).fetchall()
+
+        grouped_entries = defaultdict(list)
+        for e in entries:
+            grouped_entries[e["voucher_id"]].append(e)
+
+        return [{"voucher": v, "entries": grouped_entries.get(v["id"], [])} for v in vouchers]
 
 
 def dashboard_summary(company_id):
     with get_conn() as conn:
-        company_count = conn.execute("SELECT COUNT(*) FROM companies").fetchone()[0]
+        company_count = conn.execute("SELECT COUNT(*) AS c FROM companies").fetchone()["c"]
 
         if not company_id:
             return {
@@ -100,28 +121,28 @@ def dashboard_summary(company_id):
             }
 
         ledger_count = conn.execute(
-            "SELECT COUNT(*) FROM ledgers WHERE company_id = ?",
+            "SELECT COUNT(*) AS c FROM ledgers WHERE company_id = ?",
             (company_id,)
-        ).fetchone()[0]
+        ).fetchone()["c"]
 
         voucher_count = conn.execute(
-            "SELECT COUNT(*) FROM vouchers WHERE company_id = ?",
+            "SELECT COUNT(*) AS c FROM vouchers WHERE company_id = ?",
             (company_id,)
-        ).fetchone()[0]
+        ).fetchone()["c"]
 
         debit_total = conn.execute("""
-            SELECT COALESCE(SUM(ve.debit), 0)
+            SELECT COALESCE(SUM(ve.debit), 0) AS total
             FROM voucher_entries ve
             JOIN vouchers v ON v.id = ve.voucher_id
             WHERE v.company_id = ?
-        """, (company_id,)).fetchone()[0]
+        """, (company_id,)).fetchone()["total"]
 
         credit_total = conn.execute("""
-            SELECT COALESCE(SUM(ve.credit), 0)
+            SELECT COALESCE(SUM(ve.credit), 0) AS total
             FROM voucher_entries ve
             JOIN vouchers v ON v.id = ve.voucher_id
             WHERE v.company_id = ?
-        """, (company_id,)).fetchone()[0]
+        """, (company_id,)).fetchone()["total"]
 
         return {
             "company_count": company_count,
@@ -148,16 +169,15 @@ def build_ai_summary(stats, duplicate_invoices, high_cash_entries, missing_gstin
 
 
 def lookup_hsn(product_name: str):
-    if not product_name or not product_name.strip():
+    name = clean_text(product_name).lower()
+    if not name:
         return None
-
-    name = product_name.strip().lower()
 
     with get_conn() as conn:
         exact = conn.execute("""
             SELECT product_name, hsn_code, gst_rate
             FROM hsn_master
-            WHERE LOWER(product_name) = ?
+            WHERE LOWER(TRIM(product_name)) = ?
             LIMIT 1
         """, (name,)).fetchone()
         if exact:
@@ -184,6 +204,7 @@ def lookup_hsn(product_name: str):
 
 
 def calculate_tax_from_product(product_name: str, base_amount: float):
+    base_amount = float(base_amount or 0)
     row = lookup_hsn(product_name)
     if not row:
         return {
@@ -192,12 +213,12 @@ def calculate_tax_from_product(product_name: str, base_amount: float):
             "hsn_code": "",
             "gst_rate": 0.0,
             "tax_amount": 0.0,
-            "total_amount": float(base_amount or 0),
+            "total_amount": round(base_amount, 2),
         }
 
     gst_rate = float(row["gst_rate"])
-    tax_amount = float(base_amount or 0) * gst_rate / 100.0
-    total_amount = float(base_amount or 0) + tax_amount
+    tax_amount = base_amount * gst_rate / 100.0
+    total_amount = base_amount + tax_amount
 
     return {
         "matched": True,
@@ -218,8 +239,8 @@ def pick_default_ledgers(company_id, voucher_type):
     sales_or_purchase = None
 
     for row in ledgers:
-        lname = row["ledger_name"].lower()
-        gname = row["group_name"].lower()
+        lname = clean_text(row["ledger_name"]).lower()
+        gname = clean_text(row["group_name"]).lower()
 
         if not cash_or_bank and ("cash" in lname or "bank" in lname or "bank" in gname):
             cash_or_bank = row
@@ -246,20 +267,30 @@ def analyze_voucher(company_id, voucher_data, entries):
     risk_score = 0
     ai_category = "General"
 
-    total_debit = sum(e["debit"] for e in entries)
-    total_credit = sum(e["credit"] for e in entries)
+    voucher_number = clean_text(voucher_data.get("voucher_number"))
+    voucher_type = clean_text(voucher_data.get("type"))
+    narration = clean_text(voucher_data.get("narration"))
+    party_name = clean_text(voucher_data.get("party_name"))
+    payment_mode = clean_text(voucher_data.get("payment_mode")).lower()
+    invoice_number = clean_text(voucher_data.get("invoice_number"))
+    total_tax_amount = to_float(voucher_data.get("tax_amount"))
+
+    total_debit = sum(to_float(e.get("debit")) for e in entries)
+    total_credit = sum(to_float(e.get("credit")) for e in entries)
     total_amount = max(total_debit, total_credit)
 
     with get_conn() as conn:
         duplicate_voucher_no = conn.execute("""
-            SELECT COUNT(*) FROM vouchers
-            WHERE company_id = ? AND voucher_number = ?
-        """, (company_id, voucher_data["voucher_number"])).fetchone()[0]
+            SELECT COUNT(*) AS c
+            FROM vouchers
+            WHERE company_id = ?
+              AND LOWER(TRIM(voucher_number)) = LOWER(TRIM(?))
+        """, (company_id, voucher_number)).fetchone()["c"]
 
         avg_row = conn.execute("""
             SELECT AVG(total_amt) AS avg_amt
             FROM (
-                SELECT v.id, SUM(ve.debit) AS total_amt
+                SELECT v.id, SUM(CASE WHEN ve.debit > ve.credit THEN ve.debit ELSE ve.credit END) AS total_amt
                 FROM vouchers v
                 JOIN voucher_entries ve ON ve.voucher_id = v.id
                 WHERE v.company_id = ? AND v.type = ?
@@ -267,25 +298,20 @@ def analyze_voucher(company_id, voucher_data, entries):
                 ORDER BY v.id DESC
                 LIMIT 20
             )
-        """, (company_id, voucher_data["type"])).fetchone()
+        """, (company_id, voucher_type)).fetchone()
         avg_amt = float(avg_row["avg_amt"] or 0)
 
         duplicate_invoice = 0
-        if voucher_data["invoice_number"]:
+        if invoice_number:
             duplicate_invoice = conn.execute("""
-                SELECT COUNT(*)
+                SELECT COUNT(*) AS c
                 FROM vouchers
                 WHERE company_id = ?
-                  AND invoice_number = ?
+                  AND LOWER(TRIM(invoice_number)) = LOWER(TRIM(?))
                   AND type = ?
-            """, (
-                company_id,
-                voucher_data["invoice_number"],
-                voucher_data["type"]
-            )).fetchone()[0]
+            """, (company_id, invoice_number, voucher_type)).fetchone()["c"]
 
     ledger_map = get_ledger_map(company_id)
-
     has_cash_bank = False
     has_missing_gstin = False
 
@@ -294,14 +320,18 @@ def analyze_voucher(company_id, voucher_data, entries):
         if not ledger:
             continue
 
-        gname = (ledger["group_name"] or "").lower()
-        lname = (ledger["ledger_name"] or "").lower()
+        gname = clean_text(ledger.get("group_name")).lower()
+        lname = clean_text(ledger.get("ledger_name")).lower()
+        gst_applicable = clean_text(ledger.get("gst_applicable"))
 
         if "bank" in gname or "bank" in lname or "cash" in lname:
             has_cash_bank = True
 
-        if voucher_data["type"] in ("Sales", "Purchase") and ledger["gst_applicable"] == "Yes" and not (ledger["gst_number"] or "").strip():
+        if voucher_type in ("Sales", "Purchase") and gst_applicable == "Yes" and not clean_text(ledger.get("gst_number")):
             has_missing_gstin = True
+
+    if "cash" in payment_mode or "bank" in payment_mode or "upi" in payment_mode:
+        has_cash_bank = True
 
     if duplicate_voucher_no > 0:
         flags.append("Duplicate voucher number")
@@ -311,7 +341,7 @@ def analyze_voucher(company_id, voucher_data, entries):
         risk_score += 20
         ai_category = "Duplicate"
 
-    if voucher_data["invoice_number"] and duplicate_invoice > 0:
+    if invoice_number and duplicate_invoice > 0:
         flags.append("Duplicate invoice number")
         explanations.append("Same invoice number already exists for the same voucher type.")
         suggestions.append("Check whether this bill is entered twice.")
@@ -321,50 +351,70 @@ def analyze_voucher(company_id, voucher_data, entries):
 
     if avg_amt > 0 and total_amount > avg_amt * 3:
         flags.append("Abnormally high voucher amount")
-        explanations.append("This voucher amount is much higher than recent average for the same type.")
-        suggestions.append("Verify amount, party, and supporting documents.")
+        explanations.append("Voucher amount is much higher than recent average for the same voucher type.")
+        suggestions.append("Verify amount, invoice, and supporting documents.")
         score_parts.append("Unusual amount spike: +25")
         risk_score += 25
         ai_category = "Amount Anomaly"
 
     if has_cash_bank and total_amount > 50000:
         flags.append("High cash/bank transaction")
-        explanations.append("High-value cash/bank linked voucher detected.")
-        suggestions.append("Keep bank proof and supporting narration ready.")
+        explanations.append("High-value voucher linked with cash/bank flow detected.")
+        suggestions.append("Keep bank proof, narration, and supporting invoice ready.")
         score_parts.append("High cash/bank transaction: +20")
         risk_score += 20
-        ai_category = "Cash Flow"
+        if ai_category == "General":
+            ai_category = "Cash Flow"
 
-    if voucher_data["type"] in ("Sales", "Purchase") and not voucher_data["narration"].strip():
+    if voucher_type in ("Sales", "Purchase") and not narration:
         flags.append("Missing narration")
         explanations.append("Sales/Purchase voucher has no narration.")
         suggestions.append("Add meaningful narration.")
         score_parts.append("Missing narration: +6")
         risk_score += 6
 
-    if voucher_data["type"] in ("Sales", "Purchase") and not voucher_data["party_name"].strip():
+    if voucher_type in ("Sales", "Purchase") and not party_name:
         flags.append("Missing party name")
         explanations.append("Sales/Purchase voucher has no party name.")
         suggestions.append("Add customer/vendor name.")
         score_parts.append("Missing party name: +10")
         risk_score += 10
-        ai_category = "Missing Data"
+        if ai_category == "General":
+            ai_category = "Missing Data"
 
-    if voucher_data["type"] in ("Sales", "Purchase") and not voucher_data["invoice_number"].strip():
+    if voucher_type in ("Sales", "Purchase") and not invoice_number:
         flags.append("Missing invoice number")
         explanations.append("Sales/Purchase voucher has no invoice number.")
         suggestions.append("Add invoice reference number.")
         score_parts.append("Missing invoice number: +12")
         risk_score += 12
-        ai_category = "Missing Data"
+        if ai_category == "General":
+            ai_category = "Missing Data"
+
+    if voucher_type in ("Sales", "Purchase") and total_amount > 0 and total_tax_amount == 0:
+        flags.append("Tax amount is zero")
+        explanations.append("Sales/Purchase voucher has zero tax amount.")
+        suggestions.append("Check HSN/GST mapping and invoice tax details.")
+        score_parts.append("Zero tax amount: +8")
+        risk_score += 8
+        if ai_category == "General":
+            ai_category = "GST"
 
     if has_missing_gstin:
         flags.append("Missing GST number on GST-applicable ledger")
-        explanations.append("A GST-applicable ledger linked to this voucher has no GST number.")
+        explanations.append("GST-applicable ledger linked to this voucher has no GST number.")
         suggestions.append("Update ledger GSTIN.")
         score_parts.append("Missing GSTIN: +18")
         risk_score += 18
         ai_category = "GST"
+
+    if abs(total_debit - total_credit) > 0.009:
+        flags.append("Voucher not balanced")
+        explanations.append("Debit total and credit total are not equal.")
+        suggestions.append("Correct debit/credit lines before saving.")
+        score_parts.append("Unbalanced voucher: +40")
+        risk_score += 40
+        ai_category = "Accounting"
 
     if risk_score >= 50:
         risk_level = "High"
@@ -390,7 +440,7 @@ def analyze_voucher(company_id, voucher_data, entries):
         "suggested_fix": " ".join(suggestions),
         "score_breakdown": " | ".join(score_parts),
         "category": ai_category,
-        "total_amount": total_amount
+        "total_amount": round(total_amount, 2)
     }
 
 
@@ -463,9 +513,9 @@ def ai_dashboard(company_id):
         stats = conn.execute("""
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN ai_risk_level = 'High' THEN 1 ELSE 0 END) AS high_count,
-                SUM(CASE WHEN ai_risk_level = 'Medium' THEN 1 ELSE 0 END) AS medium_count,
-                SUM(CASE WHEN ai_risk_level = 'Low' THEN 1 ELSE 0 END) AS low_count,
+                COALESCE(SUM(CASE WHEN ai_risk_level = 'High' THEN 1 ELSE 0 END), 0) AS high_count,
+                COALESCE(SUM(CASE WHEN ai_risk_level = 'Medium' THEN 1 ELSE 0 END), 0) AS medium_count,
+                COALESCE(SUM(CASE WHEN ai_risk_level = 'Low' THEN 1 ELSE 0 END), 0) AS low_count,
                 COALESCE(AVG(ai_risk_score), 0) AS avg_score
             FROM vouchers
             WHERE company_id = ?
@@ -479,28 +529,30 @@ def ai_dashboard(company_id):
         """, (company_id,)).fetchall()
 
         duplicate_invoices = conn.execute("""
-            SELECT COUNT(*) FROM (
-                SELECT invoice_number
+            SELECT COUNT(*) AS c FROM (
+                SELECT LOWER(TRIM(invoice_number)) AS invoice_number, type
                 FROM vouchers
-                WHERE company_id = ? AND invoice_number IS NOT NULL AND TRIM(invoice_number) <> ''
-                GROUP BY invoice_number, type
+                WHERE company_id = ?
+                  AND invoice_number IS NOT NULL
+                  AND TRIM(invoice_number) <> ''
+                GROUP BY LOWER(TRIM(invoice_number)), type
                 HAVING COUNT(*) > 1
             )
-        """, (company_id,)).fetchone()[0]
+        """, (company_id,)).fetchone()["c"]
 
         high_cash_entries = conn.execute("""
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS c
             FROM vouchers
             WHERE company_id = ?
-              AND ai_flags LIKE '%High cash%'
-        """, (company_id,)).fetchone()[0]
+              AND ai_flags LIKE '%High cash/bank transaction%'
+        """, (company_id,)).fetchone()["c"]
 
         missing_gstin_count = conn.execute("""
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS c
             FROM vouchers
             WHERE company_id = ?
               AND ai_flags LIKE '%Missing GST number%'
-        """, (company_id,)).fetchone()[0]
+        """, (company_id,)).fetchone()["c"]
 
         risk_alerts = conn.execute("""
             SELECT *
@@ -519,6 +571,7 @@ def ai_dashboard(company_id):
                 OR ai_flags LIKE '%Missing narration%'
                 OR ai_flags LIKE '%Missing party name%'
                 OR ai_flags LIKE '%Missing invoice number%'
+                OR ai_flags LIKE '%Tax amount is zero%'
               )
             ORDER BY id DESC
             LIMIT 50
@@ -545,7 +598,7 @@ def parse_invoice_text(invoice_text: str):
         for pattern in patterns:
             match = re.search(pattern, text, flags=re.IGNORECASE)
             if match:
-                return match.group(1).strip()
+                return clean_text(match.group(1))
         return default
 
     invoice_number = find_first([
@@ -597,10 +650,13 @@ def parse_invoice_text(invoice_text: str):
     def parse_amount(value):
         if not value:
             return 0.0
-        return float(value.replace(",", "").strip())
+        try:
+            return float(value.replace(",", "").strip())
+        except ValueError:
+            return 0.0
 
     base_amount = parse_amount(base_amount_raw)
-    gst_rate = float(gst_rate_raw) if gst_rate_raw else 0.0
+    gst_rate = to_float(gst_rate_raw)
 
     return {
         "invoice_number": invoice_number,
@@ -610,12 +666,12 @@ def parse_invoice_text(invoice_text: str):
         "base_amount": base_amount,
         "hsn_code": hsn_code,
         "gst_rate": gst_rate,
-        "payment_mode": payment_mode.strip(),
+        "payment_mode": payment_mode.strip() or "Bank",
         "raw_text": text.strip(),
     }
 
 
-def build_context(request: Request, screen="dashboard", selected_voucher_type="", scanner_result=None):
+def build_context(request: Request, screen="dashboard", selected_voucher_type="", scanner_result=None, message=""):
     active_company = get_active_company(request)
     company_id = active_company["id"] if active_company else None
     data = ai_dashboard(company_id)
@@ -638,15 +694,16 @@ def build_context(request: Request, screen="dashboard", selected_voucher_type=""
         "risk_alerts": data["risk_alerts"],
         "compliance_items": data["compliance_items"],
         "ai_summary": data["ai_summary"],
-        "scanner_result": scanner_result
+        "scanner_result": scanner_result,
+        "message": message
     }
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, screen: str = "dashboard", type: str = ""):
+def home(request: Request, screen: str = "dashboard", type: str = "", message: str = ""):
     return templates.TemplateResponse(
         "index.html",
-        build_context(request, screen=screen, selected_voucher_type=type)
+        build_context(request, screen=screen, selected_voucher_type=type, message=message)
     )
 
 
@@ -680,43 +737,45 @@ def create_company_route(
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            name.strip(), mailing_name.strip(), address.strip(), state.strip(),
-            country.strip(), phone.strip(), email.strip(),
-            financial_year_start, books_from, currency.strip() or "₹",
-            maintain_inventory, enable_gst
+            clean_text(name),
+            clean_text(mailing_name),
+            clean_text(address),
+            clean_text(state),
+            clean_text(country) or "India",
+            clean_text(phone),
+            clean_text(email),
+            financial_year_start,
+            books_from,
+            clean_text(currency) or "₹",
+            maintain_inventory,
+            enable_gst
         ))
         company_id = cur.lastrowid
 
-    response = RedirectResponse(url="/?screen=company", status_code=303)
-    if not request.cookies.get("active_company_id"):
-        response.set_cookie("active_company_id", str(company_id))
+    response = RedirectResponse(url="/?screen=company&message=Company%20created%20successfully", status_code=303)
+    response.set_cookie("active_company_id", str(company_id))
     return response
 
 
 @app.get("/company/select/{company_id}")
 def select_company(company_id: int):
+    with get_conn() as conn:
+        company = conn.execute("SELECT id FROM companies WHERE id = ?", (company_id,)).fetchone()
+
     response = RedirectResponse(url="/?screen=dashboard", status_code=303)
-    response.set_cookie("active_company_id", str(company_id))
+    if company:
+        response.set_cookie("active_company_id", str(company_id))
+    else:
+        response.delete_cookie("active_company_id")
     return response
 
 
 @app.get("/company/delete/{company_id}")
 def delete_company_route(request: Request, company_id: int):
     with get_conn() as conn:
-        voucher_ids = conn.execute(
-            "SELECT id FROM vouchers WHERE company_id = ?",
-            (company_id,)
-        ).fetchall()
-
-        for row in voucher_ids:
-            conn.execute("DELETE FROM voucher_entries WHERE voucher_id = ?", (row["id"],))
-            conn.execute("DELETE FROM ai_transactions WHERE voucher_id = ?", (row["id"],))
-
-        conn.execute("DELETE FROM vouchers WHERE company_id = ?", (company_id,))
-        conn.execute("DELETE FROM ledgers WHERE company_id = ?", (company_id,))
         conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
 
-    response = RedirectResponse(url="/?screen=company", status_code=303)
+    response = RedirectResponse(url="/?screen=company&message=Company%20deleted", status_code=303)
     if request.cookies.get("active_company_id") == str(company_id):
         response.delete_cookie("active_company_id")
     return response
@@ -737,66 +796,83 @@ def create_ledger_route(
 ):
     active_company = get_active_company(request)
     if not active_company:
-        return RedirectResponse(url="/?screen=ledger", status_code=303)
+        return RedirectResponse(url="/?screen=ledger&message=Select%20a%20company%20first", status_code=303)
+
+    ledger_name = clean_text(ledger_name)
+    if not ledger_name:
+        return RedirectResponse(url="/?screen=ledger&message=Ledger%20name%20is%20required", status_code=303)
 
     with get_conn() as conn:
         existing = conn.execute("""
-            SELECT COUNT(*)
+            SELECT COUNT(*) AS c
             FROM ledgers
-            WHERE company_id = ? AND LOWER(ledger_name) = LOWER(?)
-        """, (active_company["id"], ledger_name.strip())).fetchone()[0]
+            WHERE company_id = ? AND LOWER(TRIM(ledger_name)) = LOWER(TRIM(?))
+        """, (active_company["id"], ledger_name)).fetchone()["c"]
 
-        if existing == 0:
-            conn.execute("""
-                INSERT INTO ledgers (
-                    company_id, ledger_name, group_name, opening_balance,
-                    balance_type, gst_applicable, gst_number, address, phone, email
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                active_company["id"],
-                ledger_name.strip(),
-                group_name,
-                opening_balance,
-                balance_type,
-                gst_applicable,
-                gst_number.strip(),
-                address.strip(),
-                phone.strip(),
-                email.strip()
-            ))
+        if existing > 0:
+            return RedirectResponse(url="/?screen=ledger&message=Ledger%20already%20exists", status_code=303)
 
-    return RedirectResponse(url="/?screen=ledger", status_code=303)
+        conn.execute("""
+            INSERT INTO ledgers (
+                company_id, ledger_name, group_name, opening_balance,
+                balance_type, gst_applicable, gst_number, address, phone, email
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            active_company["id"],
+            ledger_name,
+            clean_text(group_name),
+            to_float(opening_balance),
+            clean_text(balance_type) or "Debit",
+            clean_text(gst_applicable) or "No",
+            clean_text(gst_number),
+            clean_text(address),
+            clean_text(phone),
+            clean_text(email)
+        ))
+
+    return RedirectResponse(url="/?screen=ledger&message=Ledger%20created%20successfully", status_code=303)
 
 
 @app.get("/ledger/delete/{ledger_id}")
 def delete_ledger_route(ledger_id: int):
-    execute("DELETE FROM ledgers WHERE id = ?", (ledger_id,))
-    return RedirectResponse(url="/?screen=ledger", status_code=303)
+    with get_conn() as conn:
+        used = conn.execute("""
+            SELECT COUNT(*) AS c
+            FROM voucher_entries
+            WHERE ledger_id = ?
+        """, (ledger_id,)).fetchone()["c"]
+
+        if used > 0:
+            return RedirectResponse(url="/?screen=ledger&message=Ledger%20is%20used%20in%20vouchers%20and%20cannot%20be%20deleted", status_code=303)
+
+        conn.execute("DELETE FROM ledgers WHERE id = ?", (ledger_id,))
+
+    return RedirectResponse(url="/?screen=ledger&message=Ledger%20deleted", status_code=303)
 
 
 @app.post("/voucher")
 async def create_voucher_route(request: Request):
     active_company = get_active_company(request)
     if not active_company:
-        return RedirectResponse(url="/?screen=voucher", status_code=303)
+        return RedirectResponse(url="/?screen=voucher&message=Select%20a%20company%20first", status_code=303)
 
     form = await request.form()
 
-    voucher_number = str(form.get("voucherNumber", "")).strip()
-    voucher_date = str(form.get("date", "")).strip()
-    voucher_type = str(form.get("type", "")).strip()
-    narration = str(form.get("narration", "")).strip()
-    party_name = str(form.get("party_name", "")).strip()
-    payment_mode = str(form.get("payment_mode", "")).strip()
-    invoice_number = str(form.get("invoice_number", "")).strip()
-    product_name = str(form.get("product_name", "")).strip()
-    hsn_code = str(form.get("hsn_code", "")).strip()
+    voucher_number = clean_text(form.get("voucherNumber"))
+    voucher_date = clean_text(form.get("date"))
+    voucher_type = clean_text(form.get("type"))
+    narration = clean_text(form.get("narration"))
+    party_name = clean_text(form.get("party_name"))
+    payment_mode = clean_text(form.get("payment_mode"))
+    invoice_number = clean_text(form.get("invoice_number"))
+    product_name = clean_text(form.get("product_name"))
+    hsn_code = clean_text(form.get("hsn_code"))
 
-    base_amount = float(form.get("base_amount", "0") or 0)
-    gst_rate = float(form.get("gst_rate", "0") or 0)
-    tax_amount = float(form.get("tax_amount", "0") or 0)
-    total_amount = float(form.get("total_amount", "0") or 0)
+    base_amount = to_float(form.get("base_amount"))
+    gst_rate = to_float(form.get("gst_rate"))
+    tax_amount = to_float(form.get("tax_amount"))
+    total_amount = to_float(form.get("total_amount"))
 
     if product_name and (gst_rate == 0 or not hsn_code):
         hsn_result = calculate_tax_from_product(product_name, base_amount)
@@ -814,8 +890,8 @@ async def create_voucher_route(request: Request):
     for ledger_id, debit, credit in zip(ledger_ids, debits, credits):
         if not ledger_id:
             continue
-        d = float(debit or 0)
-        c = float(credit or 0)
+        d = to_float(debit)
+        c = to_float(credit)
         if d <= 0 and c <= 0:
             continue
         cleaned_entries.append({
@@ -825,13 +901,13 @@ async def create_voucher_route(request: Request):
         })
 
     if len(cleaned_entries) < 2:
-        return RedirectResponse(url="/?screen=voucher", status_code=303)
+        return RedirectResponse(url="/?screen=voucher&message=At%20least%20two%20voucher%20lines%20are%20required", status_code=303)
 
     debit_total = sum(x["debit"] for x in cleaned_entries)
     credit_total = sum(x["credit"] for x in cleaned_entries)
 
     if round(debit_total, 2) != round(credit_total, 2):
-        return RedirectResponse(url="/?screen=voucher", status_code=303)
+        return RedirectResponse(url="/?screen=voucher&message=Debit%20and%20Credit%20must%20match", status_code=303)
 
     voucher_data = {
         "voucher_number": voucher_number,
@@ -889,7 +965,7 @@ async def create_voucher_route(request: Request):
             """, (voucher_id, item["ledger_id"], item["debit"], item["credit"]))
 
     sync_ai_transactions(active_company["id"], voucher_id)
-    return RedirectResponse(url="/?screen=voucher", status_code=303)
+    return RedirectResponse(url="/?screen=voucher&message=Voucher%20saved%20successfully", status_code=303)
 
 
 @app.post("/scanner/preview", response_class=HTMLResponse)
@@ -936,36 +1012,34 @@ def scanner_create(
 ):
     active_company = get_active_company(request)
     if not active_company:
-        return RedirectResponse(url="/?screen=scanner", status_code=303)
+        return RedirectResponse(url="/?screen=scanner&message=Select%20a%20company%20first", status_code=303)
 
-    debit_ledger, credit_ledger = pick_default_ledgers(active_company["id"], voucher_type)
-    if not debit_ledger or not credit_ledger:
-        return RedirectResponse(url="/?screen=scanner", status_code=303)
+    business_ledger, cash_bank_ledger = pick_default_ledgers(active_company["id"], voucher_type)
+    if not business_ledger or not cash_bank_ledger:
+        return RedirectResponse(url="/?screen=scanner&message=Need%20at%20least%20one%20business%20ledger%20and%20one%20cash/bank%20ledger", status_code=303)
 
-    voucher_number = f"SCAN-{abs(hash((invoice_number, party_name, date))) % 1000000}"
-    narration = f"Auto-created from invoice scanner for {product_name}".strip()
+    voucher_number = f"SCAN-{abs(hash((invoice_number, party_name, date, product_name))) % 1000000}"
+    narration = f"Auto-created from invoice scanner for {clean_text(product_name)}"
 
-    cleaned_entries = [
-        {
-            "ledger_id": int(debit_ledger["id"]),
-            "debit": float(total_amount),
-            "credit": 0.0
-        },
-        {
-            "ledger_id": int(credit_ledger["id"]),
-            "debit": 0.0,
-            "credit": float(total_amount)
-        }
-    ]
+    if voucher_type == "Purchase":
+        cleaned_entries = [
+            {"ledger_id": int(business_ledger["id"]), "debit": float(total_amount), "credit": 0.0},
+            {"ledger_id": int(cash_bank_ledger["id"]), "debit": 0.0, "credit": float(total_amount)},
+        ]
+    else:
+        cleaned_entries = [
+            {"ledger_id": int(cash_bank_ledger["id"]), "debit": float(total_amount), "credit": 0.0},
+            {"ledger_id": int(business_ledger["id"]), "debit": 0.0, "credit": float(total_amount)},
+        ]
 
     voucher_data = {
         "voucher_number": voucher_number,
-        "date": date or "2026-03-09",
+        "date": date or "2026-03-10",
         "type": voucher_type,
         "narration": narration,
-        "party_name": party_name,
-        "payment_mode": payment_mode,
-        "invoice_number": invoice_number,
+        "party_name": clean_text(party_name),
+        "payment_mode": clean_text(payment_mode),
+        "invoice_number": clean_text(invoice_number),
         "tax_amount": tax_amount
     }
 
@@ -984,18 +1058,18 @@ def scanner_create(
         """, (
             active_company["id"],
             voucher_number,
-            date or "2026-03-09",
+            date or "2026-03-10",
             voucher_type,
             narration,
-            party_name,
-            payment_mode,
-            invoice_number,
-            product_name,
-            hsn_code,
-            gst_rate,
-            tax_amount,
-            base_amount,
-            total_amount,
+            clean_text(party_name),
+            clean_text(payment_mode),
+            clean_text(invoice_number),
+            clean_text(product_name),
+            clean_text(hsn_code),
+            to_float(gst_rate),
+            to_float(tax_amount),
+            to_float(base_amount),
+            to_float(total_amount),
             ai["risk_level"],
             ai["risk_score"],
             ai["flags"],
@@ -1014,13 +1088,11 @@ def scanner_create(
             """, (voucher_id, item["ledger_id"], item["debit"], item["credit"]))
 
     sync_ai_transactions(active_company["id"], voucher_id)
-    return RedirectResponse(url="/?screen=voucher", status_code=303)
+    return RedirectResponse(url="/?screen=voucher&message=Scanner%20voucher%20created%20successfully", status_code=303)
 
 
 @app.get("/voucher/delete/{voucher_id}")
 def delete_voucher_route(voucher_id: int):
     with get_conn() as conn:
-        conn.execute("DELETE FROM voucher_entries WHERE voucher_id = ?", (voucher_id,))
-        conn.execute("DELETE FROM ai_transactions WHERE voucher_id = ?", (voucher_id,))
         conn.execute("DELETE FROM vouchers WHERE id = ?", (voucher_id,))
-    return RedirectResponse(url="/?screen=voucher", status_code=303)
+    return RedirectResponse(url="/?screen=voucher&message=Voucher%20deleted", status_code=303)
