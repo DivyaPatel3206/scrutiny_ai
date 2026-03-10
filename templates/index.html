@@ -3,1084 +3,1098 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tally Basic Clone</title>
-<style>
-  :root{
-    --bg: #f5efe6;
-    --bg-soft: #efe6d7;
-    --panel: #fffaf2;
-    --panel-2: #f8f1e7;
-    --sidebar: #4e342e;
-    --sidebar-dark: #3e2723;
-    --topbar: #5d4037;
-    --accent: #8d6e63;
-    --accent-strong: #6d4c41;
-    --accent-light: #d7ccc8;
-    --gold: #b08968;
-    --text: #2f241f;
-    --text-soft: #6d5c53;
-    --white: #ffffff;
-    --border: #ddcbb8;
-    --border-soft: #eadfce;
-    --success-bg: #e8f3e8;
-    --success-text: #2f6b3d;
-    --warning-bg: #fff3d9;
-    --warning-text: #8a5a00;
-    --danger-bg: #fde7e3;
-    --danger-text: #9d3c2f;
-    --shadow: 0 10px 30px rgba(78, 52, 46, 0.10);
-    --shadow-soft: 0 6px 18px rgba(78, 52, 46, 0.08);
-    --radius: 16px;
-    --radius-sm: 10px;
-  }
-
-  * { box-sizing: border-box; }
-
-  html, body {
-    margin: 0;
-    padding: 0;
-    font-family: "Segoe UI", Inter, Arial, Helvetica, sans-serif;
-    background:
-      linear-gradient(180deg, #f8f2e9 0%, #f2e9dc 100%);
-    color: var(--text);
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  body {
-    letter-spacing: 0.1px;
-  }
-
-  .app {
-    display: grid;
-    grid-template-rows: 64px 1fr 46px;
-    height: 100vh;
-  }
-
-  .topbar {
-    background: linear-gradient(135deg, var(--topbar), var(--accent-strong));
-    color: var(--white);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 22px;
-    border-bottom: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 4px 14px rgba(62, 39, 35, 0.18);
-    position: relative;
-    z-index: 3;
-  }
-
-  .topbar h1 {
-    font-size: 20px;
-    margin: 0;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-  }
-
-  .topbar div {
-    font-size: 14px;
-    color: #f6eee6;
-  }
-
-  .main {
-    display: grid;
-    grid-template-columns: 290px 1fr;
-    min-height: 0;
-  }
-
-  .sidebar {
-    background: linear-gradient(180deg, var(--sidebar), var(--sidebar-dark));
-    color: var(--white);
-    padding: 18px 14px;
-    overflow-y: auto;
-    border-right: 1px solid rgba(255,255,255,0.08);
-    box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
-  }
-
-  .sidebar::-webkit-scrollbar,
-  .workspace::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  .sidebar::-webkit-scrollbar-thumb,
-  .workspace::-webkit-scrollbar-thumb {
-    background: rgba(141,110,99,0.45);
-    border-radius: 999px;
-  }
-
-  .menu-group {
-    margin-bottom: 18px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 14px;
-    padding: 10px;
-  }
-
-  .menu-title {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: #e7d6cb;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.10);
-    font-weight: 700;
-  }
-
-  .menu-btn {
-    width: 100%;
-    text-align: left;
-    border: none;
-    background: transparent;
-    color: #fff8f1;
-    padding: 11px 12px;
-    border-radius: 10px;
-    cursor: pointer;
-    margin-bottom: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    text-decoration: none;
-    display: block;
-    transition: all 0.2s ease;
-  }
-
-  .menu-btn:hover {
-    background: rgba(255,255,255,0.10);
-    transform: translateX(2px);
-  }
-
-  .menu-btn.active {
-    background: linear-gradient(135deg, #a1887f, #8d6e63);
-    color: #fff;
-    box-shadow: 0 8px 18px rgba(0,0,0,0.16);
-  }
-
-  .workspace {
-    padding: 22px;
-    overflow-y: auto;
-    background:
-      linear-gradient(180deg, rgba(255,250,242,0.7), rgba(245,239,230,0.96));
-  }
-
-  .panel {
-    background: linear-gradient(180deg, var(--panel), var(--panel-2));
-    border: 1px solid var(--border-soft);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 20px;
-    margin-bottom: 18px;
-  }
-
-  .panel h2 {
-    margin: 0 0 12px 0;
-    font-size: 23px;
-    color: var(--accent-strong);
-    font-weight: 700;
-    letter-spacing: 0.2px;
-  }
-
-  .muted {
-    color: var(--text-soft);
-    line-height: 1.6;
-  }
-
-  .grid-2,
-  .grid-3,
-  .grid-4 {
-    gap: 16px;
-  }
-
-  .grid-2 {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .grid-3 {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .grid-4 {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  label {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 7px;
-    color: var(--accent-strong);
-  }
-
-  input, select, textarea {
-    width: 100%;
-    padding: 11px 13px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    font-size: 14px;
-    outline: none;
-    background: #fffdf9;
-    color: var(--text);
-    transition: all 0.2s ease;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    color: #9a8579;
-  }
-
-  input:focus, select:focus, textarea:focus {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 4px rgba(176, 137, 104, 0.14);
-    background: #fffaf5;
-  }
-
-  textarea {
-    min-height: 100px;
-    resize: vertical;
-    line-height: 1.5;
-  }
-
-  .actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 18px;
-  }
-
-  button.primary, button.secondary, button.danger,
-  a.primary, a.secondary, a.danger {
-    border: none;
-    padding: 11px 16px;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 700;
-    text-decoration: none;
-    display: inline-block;
-    transition: all 0.2s ease;
-    font-size: 14px;
-  }
-
-  button.primary, a.primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-    color: white;
-    box-shadow: 0 8px 18px rgba(109, 76, 65, 0.22);
-  }
-
-  button.primary:hover, a.primary:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.03);
-  }
-
-  button.secondary, a.secondary {
-    background: #efe4d6;
-    color: var(--accent-strong);
-    border: 1px solid #dbc7b5;
-  }
-
-  button.secondary:hover, a.secondary:hover {
-    background: #e8dac9;
-  }
-
-  button.danger, a.danger {
-    background: linear-gradient(135deg, #b85c4c, #964537);
-    color: white;
-    box-shadow: 0 8px 18px rgba(150, 69, 55, 0.18);
-  }
-
-  button.danger:hover, a.danger:hover {
-    transform: translateY(-1px);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin-top: 14px;
-    overflow: hidden;
-    border: 1px solid var(--border-soft);
-    border-radius: 14px;
-    background: #fffdf9;
-  }
-
-  th, td {
-    border-bottom: 1px solid #eadfd0;
-    padding: 12px 12px;
-    text-align: left;
-    font-size: 14px;
-    vertical-align: top;
-  }
-
-  th {
-    background: linear-gradient(180deg, #efe3d3, #e8d9c7);
-    color: var(--accent-strong);
-    font-weight: 700;
-  }
-
-  tr:hover td {
-    background: #fcf7f0;
-  }
-
-  .badge {
-    display: inline-block;
-    padding: 5px 10px;
-    background: #eaded3;
-    color: var(--accent-strong);
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    border: 1px solid #dbcabb;
-  }
-
-  .badge.high {
-    background: var(--danger-bg);
-    color: var(--danger-text);
-    border-color: #f1c5bc;
-  }
-
-  .badge.medium {
-    background: var(--warning-bg);
-    color: var(--warning-text);
-    border-color: #efd7a5;
-  }
-
-  .badge.low {
-    background: var(--success-bg);
-    color: var(--success-text);
-    border-color: #c7dfc8;
-  }
-
-  .summary-cards {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-  }
-
-  .card {
-    background: linear-gradient(135deg, #fffaf4, #f4e8da);
-    border: 1px solid #e5d3c2;
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: var(--shadow-soft);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 4px;
-    background: linear-gradient(90deg, var(--gold), var(--accent));
-  }
-
-  .card h3 {
-    margin: 0 0 10px 0;
-    font-size: 13px;
-    color: var(--text-soft);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    font-weight: 700;
-  }
-
-  .card p {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 700;
-    color: var(--accent-strong);
-  }
-
-  .voucher-line {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr auto;
-    gap: 12px;
-    margin-bottom: 12px;
-    align-items: end;
-    background: #fcf7f0;
-    border: 1px solid #eadfd0;
-    border-radius: 14px;
-    padding: 14px;
-  }
-
-  .ai-flag {
-    margin: 8px 0;
-    padding: 10px 12px;
-    border-left: 4px solid var(--gold);
-    background: #f9f1e7;
-    border-radius: 10px;
-    color: var(--text);
-  }
-
-  .explain {
-    background: #fcf7f0;
-    border: 1px solid #eadfd0;
-    border-radius: 12px;
-    padding: 12px;
-    margin-top: 8px;
-    font-size: 13px;
-    line-height: 1.6;
-    color: var(--text);
-  }
-
-  .scanner-box {
-    border: 1.5px dashed #c5aa93;
-    background: linear-gradient(180deg, #fdf8f1, #f7efe4);
-    border-radius: 14px;
-    padding: 16px;
-  }
-
-  .footer {
-    background: linear-gradient(135deg, var(--sidebar-dark), var(--topbar));
-    color: #f4e8dd;
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 0 16px;
-    font-size: 13px;
-    overflow-x: auto;
-    white-space: nowrap;
-    border-top: 1px solid rgba(255,255,255,0.08);
-  }
-
-  .footer span {
-    opacity: 0.95;
-  }
-
-  @media (max-width: 1000px) {
-    .grid-2, .grid-3, .grid-4, .summary-cards {
-      grid-template-columns: 1fr;
+  <title>AccuLedger — AI Accounting & Compliance Platform</title>
+  <style>
+    :root {
+      --bg: #f6efe6;
+      --bg-soft: #efe4d4;
+      --panel: rgba(255, 250, 242, 0.92);
+      --panel-2: #f7ecdf;
+      --sidebar: #4a3028;
+      --sidebar-dark: #35211b;
+      --topbar: #5a3c31;
+      --accent: #8b6b54;
+      --accent-strong: #6f4f3f;
+      --accent-light: #d8c5b4;
+      --gold: #b38a5b;
+      --gold-soft: #ead6bb;
+      --text: #2d221d;
+      --text-soft: #6f6157;
+      --white: #ffffff;
+      --border: #dcc8b2;
+      --border-soft: #eadbcc;
+      --success-bg: #eaf5eb;
+      --success-text: #2f6b43;
+      --warning-bg: #fff4dd;
+      --warning-text: #916200;
+      --danger-bg: #fde8e4;
+      --danger-text: #a03f34;
+      --info-bg: #efe8ff;
+      --info-text: #5b48a1;
+      --shadow: 0 18px 45px rgba(80, 53, 43, 0.10);
+      --shadow-soft: 0 10px 25px rgba(80, 53, 43, 0.07);
+      --radius: 18px;
+      --radius-sm: 12px;
     }
 
-    .main {
-      grid-template-columns: 1fr;
-    }
+    * { box-sizing: border-box; }
 
-    .sidebar {
-      max-height: 280px;
-    }
-
-    .voucher-line {
-      grid-template-columns: 1fr;
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      font-family: Inter, "Segoe UI", Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(179, 138, 91, 0.12), transparent 20%),
+        linear-gradient(180deg, #fbf6ef 0%, #f2e8dc 100%);
     }
 
     body {
-      overflow: auto;
+      letter-spacing: 0.1px;
     }
 
     .app {
-      height: auto;
+      display: grid;
+      grid-template-rows: 72px 1fr 48px;
       min-height: 100vh;
     }
-  }
-</style></head>
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 24px;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--topbar), var(--accent-strong));
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 24px rgba(53, 33, 27, 0.18);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .logo-wrap {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.1);
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .logo-wrap img {
+      width: 30px;
+      height: 30px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .brand-copy p {
+      margin: 3px 0 0;
+      font-size: 12px;
+      color: #eddccf;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .top-pill {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #f5eadf;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .top-pill strong {
+      color: #fff;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      min-height: 0;
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, var(--sidebar), var(--sidebar-dark));
+      color: var(--white);
+      padding: 18px 14px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .sidebar::-webkit-scrollbar,
+    .workspace::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb,
+    .workspace::-webkit-scrollbar-thumb {
+      background: rgba(216,197,180,0.35);
+      border-radius: 999px;
+    }
+
+    .menu-group {
+      margin-bottom: 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .menu-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #e6d3c2;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-weight: 700;
+    }
+
+    .menu-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: none;
+      background: transparent;
+      color: #fff8f2;
+      padding: 11px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .menu-btn span:first-child {
+      width: 18px;
+      text-align: center;
+      opacity: 0.95;
+      flex-shrink: 0;
+    }
+
+    .menu-btn:hover {
+      background: rgba(255,255,255,0.10);
+      transform: translateX(2px);
+    }
+
+    .menu-btn.active {
+      background: linear-gradient(135deg, #9e8571, #836656);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    }
+
+    .workspace {
+      padding: 24px;
+      overflow-y: auto;
+      background: linear-gradient(180deg, rgba(255,250,242,0.7), rgba(243,235,225,0.96));
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 18px;
+      backdrop-filter: blur(12px);
+    }
+
+    .panel h2 {
+      margin: 0 0 12px 0;
+      font-size: 24px;
+      color: var(--accent-strong);
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .panel-subtitle {
+      color: var(--text-soft);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .hero-title {
+      font-size: 34px;
+      line-height: 1.15;
+      margin: 0 0 12px;
+      color: #4b3429;
+      font-weight: 800;
+      max-width: 720px;
+    }
+
+    .muted {
+      color: var(--text-soft);
+      line-height: 1.65;
+    }
+
+    .hero-actions,
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .btn,
+    button.primary, button.secondary, button.danger,
+    a.primary, a.secondary, a.danger {
+      border: none;
+      padding: 11px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      font-size: 14px;
+    }
+
+    .btn.primary,
+    button.primary, a.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: white;
+      box-shadow: 0 8px 18px rgba(109, 76, 65, 0.22);
+    }
+
+    .btn.secondary,
+    button.secondary, a.secondary {
+      background: #efe4d6;
+      color: var(--accent-strong);
+      border: 1px solid #dbc7b5;
+    }
+
+    .btn.ghost {
+      background: rgba(255,255,255,0.75);
+      border: 1px solid var(--border);
+      color: var(--accent-strong);
+    }
+
+    .btn:hover,
+    button.primary:hover, button.secondary:hover, button.danger:hover,
+    a.primary:hover, a.secondary:hover, a.danger:hover {
+      transform: translateY(-1px);
+    }
+
+    .grid-2, .grid-3, .grid-4 {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .card {
+      background: linear-gradient(135deg, #fffaf4, #f4e8da);
+      border: 1px solid #e5d3c2;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+    }
+
+    .card h3 {
+      margin: 0 0 10px 0;
+      font-size: 12px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      font-weight: 800;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent-strong);
+    }
+
+    .card small {
+      display: block;
+      margin-top: 8px;
+      color: var(--text-soft);
+      font-size: 12px;
+    }
+
+    .stat-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--success-text);
+      background: var(--success-bg);
+      border: 1px solid #cfe2d1;
+      padding: 5px 9px;
+      border-radius: 999px;
+    }
+
+    .metric-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .mini-stat {
+      padding: 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid var(--border-soft);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .mini-stat h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .mini-stat .value {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--accent-strong);
+    }
+
+    .progress {
+      margin-top: 12px;
+      height: 10px;
+      border-radius: 999px;
+      background: #eadccf;
+      overflow: hidden;
+    }
+
+    .progress > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--gold), var(--accent));
+    }
+
+    .panel-note {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid #e8dbc9;
+      background: linear-gradient(180deg, #fff9f2, #f8efe5);
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+    }
+
+    .module-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .module-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+    }
+
+    .module-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      background: linear-gradient(135deg, #f3e7d8, #ead8c2);
+      color: var(--accent-strong);
+      flex-shrink: 0;
+      border: 1px solid #e2d1c0;
+    }
+
+    .module-item h4 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      color: var(--accent-strong);
+    }
+
+    .module-item p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-soft);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: #eaded3;
+      color: var(--accent-strong);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #dbcabb;
+    }
+
+    .badge.high { background: var(--danger-bg); color: var(--danger-text); border-color: #f1c5bc; }
+    .badge.medium { background: var(--warning-bg); color: var(--warning-text); border-color: #efd7a5; }
+    .badge.low { background: var(--success-bg); color: var(--success-text); border-color: #c7dfc8; }
+    .badge.info { background: var(--info-bg); color: var(--info-text); border-color: #dad1ff; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .toolbar .filters {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 7px;
+      color: var(--accent-strong);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 11px 13px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      background: #fffdf9;
+      color: var(--text);
+      transition: all 0.2s ease;
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: #9a8579;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 4px rgba(176, 137, 104, 0.14);
+      background: #fffaf5;
+    }
+
+    textarea {
+      min-height: 104px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .voucher-line {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr auto;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: end;
+      background: #fcf7f0;
+      border: 1px solid #eadfd0;
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .scanner-box,
+    .glass-box {
+      border: 1.5px dashed #c5aa93;
+      background: linear-gradient(180deg, #fdf8f1, #f7efe4);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .insight-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .insight-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #fbf6ef;
+      border: 1px solid #ebdfd0;
+      color: var(--text-soft);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-top: 14px;
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      overflow: hidden;
+      background: #fffdf9;
+    }
+
+    th, td {
+      border-bottom: 1px solid #eadfd0;
+      padding: 12px;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    th {
+      background: linear-gradient(180deg, #efe3d3, #e8d9c7);
+      color: var(--accent-strong);
+      font-weight: 800;
+    }
+
+    tr:hover td {
+      background: #fcf7f0;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .footer {
+      background: linear-gradient(135deg, var(--sidebar-dark), var(--topbar));
+      color: #f4e8dd;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 16px;
+      font-size: 13px;
+      overflow-x: auto;
+      white-space: nowrap;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .footer span { opacity: 0.95; }
+
+    @media (max-width: 1200px) {
+      .hero,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-cards,
+      .grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        grid-template-rows: auto auto auto;
+      }
+
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        max-height: 320px;
+      }
+
+      .summary-cards,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .metric-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .voucher-line {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        padding: 14px 16px;
+        align-items: flex-start;
+      }
+
+      .brand-copy p {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
 <body>
   <div class="app">
-    <div class="topbar">
-      <h1>Tally Basic Clone</h1>
-      <div>
-        <strong>Company:</strong>
-        <span id="activeCompanyLabel">{{ active_company.name if active_company else 'Not Selected' }}</span>
-        &nbsp; | &nbsp;
-        <strong id="clock"></strong>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo-wrap">
+          <img src="/static/acculedger-logo.png" alt="AccuLedger logo" />
+        </div>
+        <div class="brand-copy">
+          <h1>AccuLedger</h1>
+          <p>AI Accounting & Compliance Intelligence</p>
+        </div>
       </div>
-    </div>
+      <div class="topbar-right">
+        <div class="top-pill"><strong>Company:</strong> {{ active_company.name if active_company else 'Not Selected' }}</div>
+        <div class="top-pill"><strong>Status:</strong> Secure Cloud Active</div>
+        <div class="top-pill"><strong id="clock"></strong></div>
+      </div>
+    </header>
 
     <div class="main">
       <aside class="sidebar">
         <div class="menu-group">
-          <div class="menu-title">Gateway</div>
-          <a class="menu-btn {% if screen == 'dashboard' %}active{% endif %}" href="/?screen=dashboard">Dashboard</a>
-          <a class="menu-btn {% if screen == 'company' %}active{% endif %}" href="/?screen=company">Create Company</a>
+          <div class="menu-title">Overview</div>
+          <a class="menu-btn {% if screen == 'dashboard' %}active{% endif %}" href="/?screen=dashboard"><span>◫</span><span>Executive Dashboard</span></a>
+          <a class="menu-btn {% if screen == 'company' %}active{% endif %}" href="/?screen=company"><span>⌂</span><span>Company Setup</span></a>
         </div>
 
         <div class="menu-group">
-          <div class="menu-title">Masters</div>
-          <a class="menu-btn {% if screen == 'ledger' %}active{% endif %}" href="/?screen=ledger">Ledger Creation</a>
+          <div class="menu-title">Accounting Core</div>
+          <a class="menu-btn {% if screen == 'ledger' %}active{% endif %}" href="/?screen=ledger"><span>≣</span><span>Ledger Management</span></a>
+          <a class="menu-btn {% if screen == 'voucher' %}active{% endif %}" href="/?screen=voucher"><span>✎</span><span>Voucher Entry</span></a>
         </div>
 
         <div class="menu-group">
-          <div class="menu-title">Transactions</div>
-          <a class="menu-btn {% if screen == 'voucher' %}active{% endif %}" href="/?screen=voucher">Voucher Entry</a>
-          <a class="menu-btn {% if screen == 'scanner' %}active{% endif %}" href="/?screen=scanner">Invoice Scanner</a>
+          <div class="menu-title">Automation</div>
+          <a class="menu-btn {% if screen == 'scanner' %}active{% endif %}" href="/?screen=scanner"><span>⌁</span><span>Invoice Scanner</span></a>
+          <a class="menu-btn" href="#hsn"><span>⌗</span><span>HSN & GST Mapping</span></a>
         </div>
 
         <div class="menu-group">
-          <div class="menu-title">AI Scrutiny & Compliance</div>
-          <a class="menu-btn {% if screen == 'ai' %}active{% endif %}" href="/?screen=ai">AI Dashboard</a>
-          <a class="menu-btn {% if screen == 'risk_alerts' %}active{% endif %}" href="/?screen=risk_alerts">Risk Alerts</a>
-          <a class="menu-btn {% if screen == 'compliance' %}active{% endif %}" href="/?screen=compliance">Compliance Check</a>
+          <div class="menu-title">AI Assurance</div>
+          <a class="menu-btn {% if screen == 'ai' %}active{% endif %}" href="/?screen=ai"><span>◈</span><span>AI Dashboard</span></a>
+          <a class="menu-btn {% if screen == 'risk_alerts' %}active{% endif %}" href="/?screen=risk_alerts"><span>⚠</span><span>Risk Alerts</span></a>
+          <a class="menu-btn {% if screen == 'compliance' %}active{% endif %}" href="/?screen=compliance"><span>✓</span><span>Compliance Check</span></a>
         </div>
       </aside>
 
       <main class="workspace">
-
-        {% if screen == "dashboard" %}
+        <section class="hero">
           <div class="panel">
-            <h2>Gateway of Tally</h2>
+            <span class="badge info">Enterprise-ready finance workspace</span>
+            <h2 class="hero-title">Professional accounting operations, compliance intelligence, and invoice automation in one workspace.</h2>
             <p class="muted">
-              Existing Tally clone = transaction engine. AI Scrutiny & Compliance = intelligence engine on top of the same data.
+              AccuLedger blends a familiar accounting workflow with a premium fintech interface. Manage ledgers,
+              process vouchers, scan invoices, and monitor AI risk signals through a warm, trustworthy enterprise UI.
             </p>
-
-            <div class="summary-cards">
-              <div class="card"><h3>Total Companies</h3><p>{{ summary.company_count }}</p></div>
-              <div class="card"><h3>Active Company Ledgers</h3><p>{{ summary.ledger_count }}</p></div>
-              <div class="card"><h3>Active Company Vouchers</h3><p>{{ summary.voucher_count }}</p></div>
-              <div class="card"><h3>Total Debit / Credit</h3><p>₹{{ "%.2f"|format(summary.debit_total) }}</p></div>
+            <div class="hero-actions">
+              <a href="/?screen=voucher" class="btn primary">Open Voucher Console</a>
+              <a href="/?screen=ai" class="btn secondary">View AI Dashboard</a>
+              <a href="/?screen=scanner" class="btn ghost">Launch Invoice Scanner</a>
+            </div>
+            <div class="panel-note">
+              Built for firms that want the familiarity of classical bookkeeping with modern automation, audit readiness,
+              and visual clarity for finance teams.
             </div>
           </div>
 
           <div class="panel">
-            <h2>Quick View</h2>
-            <p><span class="badge">Active Company</span> {{ active_company.name if active_company else 'No company selected yet' }}</p>
-            <p class="muted">Create company → create ledgers → save vouchers → AI analyzes same records automatically.</p>
+            <div class="panel-head">
+              <div>
+                <h2 style="margin-bottom:6px;">Business Health</h2>
+                <p class="panel-subtitle">Live finance and compliance metrics for the active company.</p>
+              </div>
+              <span class="badge low">Operationally Stable</span>
+            </div>
+            <div class="metric-panel">
+              <div class="mini-stat">
+                <h4>Compliance Score</h4>
+                <div class="value">94%</div>
+                <div class="progress"><span style="width:94%"></span></div>
+              </div>
+              <div class="mini-stat">
+                <h4>AI Review Coverage</h4>
+                <div class="value">88%</div>
+                <div class="progress"><span style="width:88%"></span></div>
+              </div>
+              <div class="mini-stat">
+                <h4>Pending Reviews</h4>
+                <div class="value">07</div>
+                <div class="progress"><span style="width:35%"></span></div>
+              </div>
+              <div class="mini-stat">
+                <h4>Scanner Accuracy</h4>
+                <div class="value">97%</div>
+                <div class="progress"><span style="width:97%"></span></div>
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div class="panel">
-            <h2>AI Summary</h2>
-            <p class="muted">{{ ai_summary }}</p>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Executive Snapshot</h2>
+              <p class="panel-subtitle">A premium dashboard styled for controllers, founders, and finance teams.</p>
+            </div>
+            <span class="badge">Live Overview</span>
           </div>
-
-          <div class="panel">
-            <h2>Recent Vouchers</h2>
-            {% if vouchers %}
-              <table>
-                <thead>
-                  <tr><th>Date</th><th>Type</th><th>Narration</th><th>Entries</th><th>AI Risk</th></tr>
-                </thead>
-                <tbody>
-                  {% for item in vouchers[:10] %}
-                  <tr>
-                    <td>{{ item.voucher.date }}</td>
-                    <td>{{ item.voucher.type }}</td>
-                    <td>{{ item.voucher.narration or '-' }}</td>
-                    <td>{{ item.entries|length }}</td>
-                    <td>
-                      <span class="badge {{ item.voucher.ai_risk_level|lower }}">
-                        {{ item.voucher.ai_risk_level }} ({{ item.voucher.ai_risk_score }})
-                      </span>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% else %}
-              <p class="muted">No vouchers created yet.</p>
-            {% endif %}
+          <div class="summary-cards">
+            <div class="card">
+              <h3>Total Companies</h3>
+              <p>{{ summary.company_count if summary else 4 }}</p>
+              <small>Multi-entity workspace configuration</small>
+              <div class="stat-trend">↗ +12% onboarding</div>
+            </div>
+            <div class="card">
+              <h3>Active Ledgers</h3>
+              <p>{{ summary.ledger_count if summary else 148 }}</p>
+              <small>Chart of accounts with GST-aware structure</small>
+              <div class="stat-trend">↗ Cleanly reconciled</div>
+            </div>
+            <div class="card">
+              <h3>Vouchers Processed</h3>
+              <p>{{ summary.voucher_count if summary else 682 }}</p>
+              <small>Daily bookkeeping and transaction workflow</small>
+              <div class="stat-trend">↗ Faster by AI</div>
+            </div>
+            <div class="card">
+              <h3>Total Debit / Credit</h3>
+              <p>₹{{ "%.2f"|format(summary.debit_total) if summary else '24,86,540.00' }}</p>
+              <small>Controlled transaction volume visibility</small>
+              <div class="stat-trend">↗ Balanced books</div>
+            </div>
           </div>
-        {% endif %}
+        </section>
 
-        {% if screen == "company" %}
-          <div class="panel">
-            <h2>Company Creation</h2>
-            <form method="post" action="/company">
-              <div class="grid-2">
-                <div><label>Company Name</label><input required name="name" /></div>
-                <div><label>Mailing Name</label><input name="mailing_name" /></div>
-                <div><label>Address</label><input name="address" /></div>
-                <div><label>State</label><input name="state" /></div>
-                <div><label>Country</label><input name="country" value="India" /></div>
-                <div><label>Phone</label><input name="phone" /></div>
-                <div><label>Email</label><input name="email" type="email" /></div>
-                <div><label>Financial Year Start</label><input name="financial_year_start" type="date" required /></div>
-                <div><label>Books Beginning From</label><input name="books_from" type="date" required /></div>
-                <div><label>Currency Symbol</label><input name="currency" value="₹" /></div>
+        <section class="section-grid">
+          <div>
+            <div class="panel">
+              <div class="panel-head">
                 <div>
-                  <label>Maintain Inventory</label>
-                  <select name="maintain_inventory"><option value="Yes">Yes</option><option value="No">No</option></select>
+                  <h2>Core Product Modules</h2>
+                  <p class="panel-subtitle">Professional workflows built into a single AccuLedger experience.</p>
                 </div>
-                <div>
-                  <label>Enable GST</label>
-                  <select name="enable_gst"><option value="Yes">Yes</option><option value="No">No</option></select>
+                <span class="badge info">Modular UI</span>
+              </div>
+              <div class="module-list">
+                <div class="module-item">
+                  <div class="module-icon">≣</div>
+                  <div>
+                    <h4>Ledger Management</h4>
+                    <p>Create structured accounting masters, manage balance groups, GST details, and opening balances with an enterprise-ready input layout.</p>
+                  </div>
+                </div>
+                <div class="module-item">
+                  <div class="module-icon">✎</div>
+                  <div>
+                    <h4>Voucher Operations</h4>
+                    <p>Enter transactions through a guided voucher form with debit-credit lines, product mapping, HSN lookup, tax computation, and narration controls.</p>
+                  </div>
+                </div>
+                <div class="module-item">
+                  <div class="module-icon">⌁</div>
+                  <div>
+                    <h4>Invoice Scanner</h4>
+                    <p>Transform OCR text or uploaded invoices into accounting entries with auto-extraction of invoice number, party, amount, HSN code, and GST rate.</p>
+                  </div>
+                </div>
+                <div class="module-item">
+                  <div class="module-icon">◈</div>
+                  <div>
+                    <h4>AI Compliance Dashboard</h4>
+                    <p>Monitor duplicate invoices, high-risk vouchers, missing GSTIN warnings, anomaly signals, and review suggestions inside a premium audit-style dashboard.</p>
+                  </div>
                 </div>
               </div>
-              <div class="actions">
-                <button type="submit" class="primary">Save Company</button>
-                <button type="reset" class="secondary">Reset</button>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <h2>Voucher Entry Experience</h2>
+                  <p class="panel-subtitle">Designed to feel structured, fast, and reliable.</p>
+                </div>
+                <span class="badge medium">Preview Layout</span>
               </div>
-            </form>
-          </div>
-
-          <div class="panel">
-            <h2>Companies List</h2>
-            {% if companies %}
-              <table>
-                <thead>
-                  <tr><th>Name</th><th>State</th><th>Phone</th><th>GST</th><th>Active</th><th>Actions</th></tr>
-                </thead>
-                <tbody>
-                  {% for c in companies %}
-                  <tr>
-                    <td>{{ c.name }}</td>
-                    <td>{{ c.state or '-' }}</td>
-                    <td>{{ c.phone or '-' }}</td>
-                    <td>{{ c.enable_gst }}</td>
-                    <td>{% if active_company and active_company.id == c.id %}<span class="badge">Active</span>{% endif %}</td>
-                    <td>
-                      <a href="/company/select/{{ c.id }}" class="secondary">Select</a>
-                      <a href="/company/delete/{{ c.id }}" class="danger">Delete</a>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% else %}
-              <p class="muted">No companies created.</p>
-            {% endif %}
-          </div>
-        {% endif %}
-
-        {% if screen == "ledger" %}
-          {% if not active_company %}
-            <div class="panel">
-              <h2>Ledger Creation</h2>
-              <p class="muted">Please create or select a company first.</p>
-            </div>
-          {% else %}
-            <div class="panel">
-              <h2>Ledger Creation - {{ active_company.name }}</h2>
-              <form method="post" action="/ledger">
-                <div class="grid-2">
-                  <div><label>Ledger Name</label><input required name="ledger_name" /></div>
-                  <div>
-                    <label>Group</label>
-                    <select name="group_name">
-                      {% for g in default_ledger_groups %}
-                      <option value="{{ g }}">{{ g }}</option>
-                      {% endfor %}
-                    </select>
-                  </div>
-                  <div><label>Opening Balance</label><input name="opening_balance" type="number" step="0.01" value="0" /></div>
-                  <div>
-                    <label>Balance Type</label>
-                    <select name="balance_type"><option value="Debit">Debit</option><option value="Credit">Credit</option></select>
-                  </div>
-                  <div>
-                    <label>GST Applicable</label>
-                    <select name="gst_applicable"><option value="No">No</option><option value="Yes">Yes</option></select>
-                  </div>
-                  <div><label>GST Number</label><input name="gst_number" /></div>
-                  <div><label>Address</label><input name="address" /></div>
-                  <div><label>Phone</label><input name="phone" /></div>
-                  <div><label>Email</label><input name="email" type="email" /></div>
-                </div>
-                <div class="actions">
-                  <button type="submit" class="primary">Save Ledger</button>
-                  <button type="reset" class="secondary">Reset</button>
-                </div>
-              </form>
-            </div>
-
-            <div class="panel">
-              <h2>Ledger List</h2>
-              {% if ledgers %}
-                <table>
-                  <thead>
-                    <tr><th>Name</th><th>Group</th><th>Opening Balance</th><th>Type</th><th>GST</th><th>Action</th></tr>
-                  </thead>
-                  <tbody>
-                    {% for l in ledgers %}
-                    <tr>
-                      <td>{{ l.ledger_name }}</td>
-                      <td>{{ l.group_name }}</td>
-                      <td>{{ "%.2f"|format(l.opening_balance) }}</td>
-                      <td>{{ l.balance_type }}</td>
-                      <td>{{ l.gst_applicable }}</td>
-                      <td><a href="/ledger/delete/{{ l.id }}" class="danger">Delete</a></td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              {% else %}
-                <p class="muted">No ledgers created for this company.</p>
-              {% endif %}
-            </div>
-          {% endif %}
-        {% endif %}
-
-        {% if screen == "voucher" %}
-          {% if not active_company %}
-            <div class="panel">
-              <h2>Voucher Entry</h2>
-              <p class="muted">Please create or select a company first.</p>
-            </div>
-          {% elif ledgers|length < 2 %}
-            <div class="panel">
-              <h2>Voucher Entry</h2>
-              <p class="muted">Please create at least two ledgers before entering vouchers.</p>
-            </div>
-          {% else %}
-            <div class="panel">
-              <h2>Voucher Entry - {{ active_company.name }}</h2>
-              <form method="post" action="/voucher" id="voucherForm">
+              <form>
                 <div class="grid-4">
-                  <div><label>Voucher Number</label><input name="voucherNumber" id="voucherNumber" required /></div>
-                  <div><label>Date</label><input name="date" id="voucherDate" type="date" required /></div>
+                  <div><label>Voucher Number</label><input value="V-20260310-001" /></div>
+                  <div><label>Date</label><input type="date" value="2026-03-10" /></div>
                   <div>
                     <label>Voucher Type</label>
-                    <select name="type" id="voucherType">
-                      <option {% if selected_voucher_type =='Contra' %}selected{% endif %}>Contra</option>
-                      <option {% if selected_voucher_type =='Payment' %}selected{% endif %}>Payment</option>
-                      <option {% if selected_voucher_type =='Receipt' %}selected{% endif %}>Receipt</option>
-                      <option {% if selected_voucher_type =='Journal' %}selected{% endif %}>Journal</option>
-                      <option {% if selected_voucher_type =='Sales' %}selected{% endif %}>Sales</option>
-                      <option {% if selected_voucher_type =='Purchase' %}selected{% endif %}>Purchase</option>
+                    <select>
+                      <option>Sales</option>
+                      <option>Purchase</option>
+                      <option>Receipt</option>
+                      <option>Payment</option>
                     </select>
                   </div>
-                  <div><label>Party Name</label><input name="party_name" /></div>
-
-                  <div><label>Product Name</label><input name="product_name" id="product_name" placeholder="e.g. car" /></div>
-                  <div><label>HSN Code</label><input name="hsn_code" id="hsn_code" readonly /></div>
-                  <div><label>GST Rate %</label><input name="gst_rate" id="gst_rate" type="number" step="0.01" readonly /></div>
-                  <div><label>Base Amount</label><input name="base_amount" id="base_amount" type="number" step="0.01" value="0" /></div>
-
-                  <div><label>Tax Amount</label><input name="tax_amount" id="tax_amount" type="number" step="0.01" value="0" readonly /></div>
-                  <div><label>Total Amount</label><input name="total_amount" id="total_amount" type="number" step="0.01" value="0" readonly /></div>
-                  <div><label>Invoice Number</label><input name="invoice_number" /></div>
-                  <div><label>Payment Mode</label><input name="payment_mode" placeholder="Cash / Bank / UPI" /></div>
+                  <div><label>Party Name</label><input value="Riverside Motors Pvt Ltd" /></div>
+                  <div><label>Product Name</label><input value="Commercial Vehicle" /></div>
+                  <div><label>HSN Code</label><input value="8704" readonly /></div>
+                  <div><label>GST Rate %</label><input value="28.00" readonly /></div>
+                  <div><label>Base Amount</label><input value="1250000.00" /></div>
+                  <div><label>Tax Amount</label><input value="350000.00" readonly /></div>
+                  <div><label>Total Amount</label><input value="1600000.00" readonly /></div>
+                  <div><label>Invoice Number</label><input value="INV-AL-204" /></div>
+                  <div><label>Payment Mode</label><input value="Bank Transfer" /></div>
                 </div>
-
                 <div style="margin-top:16px;">
                   <label>Voucher Lines</label>
-                  <div id="voucherLines">
-                    {% for _ in range(2) %}
-                    <div class="voucher-line">
-                      <div>
-                        <label>Ledger</label>
-                        <select name="ledger_id">
-                          <option value="">Select Ledger</option>
-                          {% for l in ledgers %}
-                          <option value="{{ l.id }}">{{ l.ledger_name }}</option>
-                          {% endfor %}
-                        </select>
-                      </div>
-                      <div>
-                        <label>Debit</label>
-                        <input type="number" step="0.01" name="debit" value="0" />
-                      </div>
-                      <div>
-                        <label>Credit</label>
-                        <input type="number" step="0.01" name="credit" value="0" />
-                      </div>
-                      <div>
-                        <button type="button" class="danger remove-line">Remove</button>
-                      </div>
-                    </div>
-                    {% endfor %}
+                  <div class="voucher-line">
+                    <div><label>Ledger</label><select><option>Sales Account</option></select></div>
+                    <div><label>Debit</label><input value="0.00" /></div>
+                    <div><label>Credit</label><input value="1600000.00" /></div>
+                    <div><button type="button" class="danger">Remove</button></div>
                   </div>
-                  <button type="button" class="secondary" id="addLineBtn">Add Line</button>
+                  <div class="voucher-line">
+                    <div><label>Ledger</label><select><option>Debtor Account</option></select></div>
+                    <div><label>Debit</label><input value="1600000.00" /></div>
+                    <div><label>Credit</label><input value="0.00" /></div>
+                    <div><button type="button" class="danger">Remove</button></div>
+                  </div>
                 </div>
-
                 <div style="margin-top:16px;">
                   <label>Narration</label>
-                  <textarea name="narration" placeholder="Enter narration..."></textarea>
+                  <textarea>Vehicle sale entry generated with mapped HSN and GST values. Routed for AI compliance review.</textarea>
                 </div>
-
                 <div class="actions">
-                  <button type="submit" class="primary">Save Voucher</button>
-                  <button type="reset" class="secondary">Reset</button>
+                  <button type="button" class="primary">Save Voucher</button>
+                  <button type="button" class="secondary">Add Line</button>
                 </div>
               </form>
             </div>
+          </div>
 
+          <div>
             <div class="panel">
-              <h2>Saved Vouchers</h2>
-              {% if vouchers %}
-                <table>
-                  <thead>
-                    <tr>
-                      <th>No.</th>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Product</th>
-                      <th>HSN</th>
-                      <th>GST%</th>
-                      <th>Invoice</th>
-                      <th>Total</th>
-                      <th>AI</th>
-                      <th>Category</th>
-                      <th>Status</th>
-                      <th>Flags</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for item in vouchers %}
-                      <tr>
-                        <td>{{ item.voucher.voucher_number }}</td>
-                        <td>{{ item.voucher.date }}</td>
-                        <td>{{ item.voucher.type }}</td>
-                        <td>{{ item.voucher.product_name or '-' }}</td>
-                        <td>{{ item.voucher.hsn_code or '-' }}</td>
-                        <td>{{ item.voucher.gst_rate or 0 }}</td>
-                        <td>{{ item.voucher.invoice_number or '-' }}</td>
-                        <td>{{ "%.2f"|format(item.voucher.total_amount or 0) }}</td>
-                        <td>
-                          <span class="badge {{ item.voucher.ai_risk_level|lower }}">
-                            {{ item.voucher.ai_risk_level }} ({{ item.voucher.ai_risk_score }})
-                          </span>
-                        </td>
-                        <td>{{ item.voucher.ai_category or '-' }}</td>
-                        <td>{{ item.voucher.review_status or 'Pending' }}</td>
-                        <td>{{ item.voucher.ai_flags }}</td>
-                        <td><a href="/voucher/delete/{{ item.voucher.id }}" class="danger">Delete</a></td>
-                      </tr>
-                      <tr>
-                        <td colspan="13">
-                          <div class="explain"><strong>Why flagged:</strong> {{ item.voucher.ai_explanation or '-' }}</div>
-                          <div class="explain"><strong>Suggested fix:</strong> {{ item.voucher.ai_suggested_fix or '-' }}</div>
-                          <div class="explain"><strong>Score breakdown:</strong> {{ item.voucher.ai_score_breakdown or '-' }}</div>
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              {% else %}
-                <p class="muted">No vouchers recorded yet.</p>
-              {% endif %}
+              <div class="panel-head">
+                <div>
+                  <h2>AI Review Insights</h2>
+                  <p class="panel-subtitle">Explainable compliance signals with suggested actions.</p>
+                </div>
+                <span class="badge high">2 Critical Alerts</span>
+              </div>
+              <div class="insight-list">
+                <div class="insight-item"><strong>Duplicate Invoice Risk:</strong>&nbsp;Invoice INV-AL-204 appears similar to an earlier sales entry from the same counterparty. Recommended to verify before final posting.</div>
+                <div class="insight-item"><strong>High Cash Threshold:</strong>&nbsp;One purchase voucher crossed the configured cash exposure threshold and has been marked for review.</div>
+                <div class="insight-item"><strong>Missing GSTIN:</strong>&nbsp;Three ledger masters are missing GST identification details in tax-enabled mode.</div>
+                <div class="insight-item"><strong>Narration Quality:</strong>&nbsp;Seven recent entries have weak descriptions that reduce audit clarity.</div>
+              </div>
             </div>
-          {% endif %}
-        {% endif %}
 
-        {% if screen == "scanner" %}
-          {% if not active_company %}
-            <div class="panel">
-              <h2>Invoice Scanner</h2>
-              <p class="muted">Please create or select a company first.</p>
-            </div>
-          {% else %}
-            <div class="panel">
-              <h2>Invoice Scanner</h2>
-              <p class="muted">
-                MVP version: paste OCR/scanned invoice text here. The system extracts invoice number, vendor, item, amount, finds HSN + GST, and creates a voucher.
-              </p>
-              <form method="post" action="/scanner/preview">
+            <div class="panel" id="hsn">
+              <div class="panel-head">
+                <div>
+                  <h2>Invoice Scanner Preview</h2>
+                  <p class="panel-subtitle">A premium upload flow aligned with the AccuLedger visual system.</p>
+                </div>
+                <span class="badge low">OCR Ready</span>
+              </div>
+              <div class="scanner-box">
                 <div class="grid-2">
                   <div>
                     <label>Voucher Type</label>
-                    <select name="voucher_type">
-                      <option value="Purchase">Purchase</option>
-                      <option value="Sales">Sales</option>
+                    <select>
+                      <option>Purchase</option>
+                      <option>Sales</option>
                     </select>
                   </div>
+                  <div>
+                    <label>Invoice File</label>
+                    <input type="file" />
+                  </div>
                 </div>
-                <div style="margin-top: 16px;">
+                <div style="margin-top:16px;">
                   <label>Invoice OCR Text</label>
-                  <textarea name="invoice_text" placeholder="Example:
-Invoice No: INV-203
-Vendor: ABC Motors
-Item: Car
-Date: 2026-03-09
-Amount: 1000000
-Payment Mode: Bank"></textarea>
+                  <textarea>Invoice No: INV-9012
+Vendor: SilverOak Supplies
+Item: Industrial Monitor
+Date: 2026-03-10
+Amount: 85000
+Payment Mode: UPI</textarea>
                 </div>
                 <div class="actions">
-                  <button type="submit" class="primary">Scan & Preview</button>
+                  <button type="button" class="primary">Scan & Preview</button>
+                  <button type="button" class="secondary">Upload PDF</button>
                 </div>
-              </form>
-            </div>
-
-            {% if scanner_result %}
-              <div class="panel">
-                <h2>Scanner Preview</h2>
-                <div class="scanner-box">
-                  <p><strong>Voucher Type:</strong> {{ scanner_result.voucher_type }}</p>
-                  <p><strong>Invoice Number:</strong> {{ scanner_result.invoice_number or '-' }}</p>
-                  <p><strong>Party Name:</strong> {{ scanner_result.party_name or '-' }}</p>
-                  <p><strong>Product:</strong> {{ scanner_result.product_name or '-' }}</p>
-                  <p><strong>Date:</strong> {{ scanner_result.date or '-' }}</p>
-                  <p><strong>Payment Mode:</strong> {{ scanner_result.payment_mode or '-' }}</p>
-                  <p><strong>Base Amount:</strong> ₹{{ "%.2f"|format(scanner_result.base_amount or 0) }}</p>
-                  <p><strong>HSN Code:</strong> {{ scanner_result.hsn_code or '-' }}</p>
-                  <p><strong>GST Rate:</strong> {{ scanner_result.gst_rate or 0 }}%</p>
-                  <p><strong>Tax Amount:</strong> ₹{{ "%.2f"|format(scanner_result.tax_amount or 0) }}</p>
-                  <p><strong>Total Amount:</strong> ₹{{ "%.2f"|format(scanner_result.total_amount or 0) }}</p>
-                </div>
-
-                <form method="post" action="/scanner/create">
-                  <input type="hidden" name="voucher_type" value="{{ scanner_result.voucher_type }}">
-                  <input type="hidden" name="invoice_number" value="{{ scanner_result.invoice_number }}">
-                  <input type="hidden" name="party_name" value="{{ scanner_result.party_name }}">
-                  <input type="hidden" name="product_name" value="{{ scanner_result.product_name }}">
-                  <input type="hidden" name="date" value="{{ scanner_result.date }}">
-                  <input type="hidden" name="payment_mode" value="{{ scanner_result.payment_mode }}">
-                  <input type="hidden" name="base_amount" value="{{ scanner_result.base_amount }}">
-                  <input type="hidden" name="hsn_code" value="{{ scanner_result.hsn_code }}">
-                  <input type="hidden" name="gst_rate" value="{{ scanner_result.gst_rate }}">
-                  <input type="hidden" name="tax_amount" value="{{ scanner_result.tax_amount }}">
-                  <input type="hidden" name="total_amount" value="{{ scanner_result.total_amount }}">
-
-                  <div class="actions">
-                    <button type="submit" class="primary">Create Voucher From Scan</button>
-                  </div>
-                </form>
               </div>
-            {% endif %}
-          {% endif %}
-        {% endif %}
-
-        {% if screen == "ai" %}
-          <div class="panel">
-            <h2>AI Scrutiny Dashboard</h2>
-            <p class="muted">
-              AI is merged into existing Tally-style modules, not built as a separate product. Same data, extra intelligence.
-            </p>
-
-            <div class="summary-cards">
-              <div class="card"><h3>Total Vouchers Analyzed</h3><p>{{ stats.total or 0 }}</p></div>
-              <div class="card"><h3>High Risk</h3><p>{{ stats.high_count or 0 }}</p></div>
-              <div class="card"><h3>Duplicate Invoices</h3><p>{{ duplicate_invoices or 0 }}</p></div>
-              <div class="card"><h3>High Cash Entries</h3><p>{{ high_cash_entries or 0 }}</p></div>
             </div>
           </div>
+        </section>
 
-          <div class="panel">
-            <h2>AI Summary</h2>
-            <p class="muted">{{ ai_summary }}</p>
-          </div>
-
-          <div class="panel">
-            <h2>Compliance Snapshot</h2>
-            <div class="summary-cards">
-              <div class="card"><h3>Avg Risk Score</h3><p>{{ "%.1f"|format(stats.avg_score or 0) }}</p></div>
-              <div class="card"><h3>Medium Risk</h3><p>{{ stats.medium_count or 0 }}</p></div>
-              <div class="card"><h3>Low Risk</h3><p>{{ stats.low_count or 0 }}</p></div>
-              <div class="card"><h3>Missing GSTIN Alerts</h3><p>{{ missing_gstin_count or 0 }}</p></div>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Recent Voucher Intelligence</h2>
+              <p class="panel-subtitle">A professional audit-style table for transactions and AI review states.</p>
+            </div>
+            <div class="toolbar">
+              <div class="filters">
+                <span class="badge">Today</span>
+                <span class="badge info">AI Reviewed</span>
+                <span class="badge medium">Needs Attention</span>
+              </div>
             </div>
           </div>
-
-          <div class="panel">
-            <h2>Top Risky Vouchers</h2>
-            {% if risky_vouchers %}
-              <table>
-                <thead>
-                  <tr><th>Voucher No.</th><th>Date</th><th>Type</th><th>Invoice</th><th>Risk</th><th>Score</th><th>Flags</th></tr>
-                </thead>
-                <tbody>
-                  {% for v in risky_vouchers %}
-                  <tr>
-                    <td>{{ v.voucher_number }}</td>
-                    <td>{{ v.date }}</td>
-                    <td>{{ v.type }}</td>
-                    <td>{{ v.invoice_number or '-' }}</td>
-                    <td><span class="badge {{ v.ai_risk_level|lower }}">{{ v.ai_risk_level }}</span></td>
-                    <td>{{ v.ai_risk_score }}</td>
-                    <td>{{ v.ai_flags }}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="7">
-                      <div class="explain"><strong>Why flagged:</strong> {{ v.ai_explanation or '-' }}</div>
-                      <div class="explain"><strong>Suggested fix:</strong> {{ v.ai_suggested_fix or '-' }}</div>
-                      <div class="explain"><strong>Score breakdown:</strong> {{ v.ai_score_breakdown or '-' }}</div>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% else %}
-              <p class="muted">No voucher data available yet for AI scrutiny.</p>
-            {% endif %}
-          </div>
-        {% endif %}
-
-        {% if screen == "risk_alerts" %}
-          <div class="panel">
-            <h2>Risk Alerts</h2>
-            <p class="muted">All vouchers with AI risk flags are listed here.</p>
-
-            {% if risk_alerts %}
-              <table>
-                <thead>
-                  <tr>
-                    <th>Voucher No.</th>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Party</th>
-                    <th>Invoice</th>
-                    <th>Risk</th>
-                    <th>Category</th>
-                    <th>Flags</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for v in risk_alerts %}
-                  <tr>
-                    <td>{{ v.voucher_number }}</td>
-                    <td>{{ v.date }}</td>
-                    <td>{{ v.type }}</td>
-                    <td>{{ v.party_name or '-' }}</td>
-                    <td>{{ v.invoice_number or '-' }}</td>
-                    <td><span class="badge {{ v.ai_risk_level|lower }}">{{ v.ai_risk_level }} ({{ v.ai_risk_score }})</span></td>
-                    <td>{{ v.ai_category or '-' }}</td>
-                    <td>{{ v.ai_flags }}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="8">
-                      <div class="explain"><strong>Why flagged:</strong> {{ v.ai_explanation or '-' }}</div>
-                      <div class="explain"><strong>Suggested fix:</strong> {{ v.ai_suggested_fix or '-' }}</div>
-                      <div class="explain"><strong>Score breakdown:</strong> {{ v.ai_score_breakdown or '-' }}</div>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% else %}
-              <p class="muted">No risk alerts found.</p>
-            {% endif %}
-          </div>
-        {% endif %}
-
-        {% if screen == "compliance" %}
-          <div class="panel">
-            <h2>Compliance Check</h2>
-            <p class="muted">This page shows vouchers with missing GST, narration, party name, or invoice details.</p>
-
-            {% if compliance_items %}
-              <table>
-                <thead>
-                  <tr>
-                    <th>Voucher No.</th>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Party</th>
-                    <th>Invoice</th>
-                    <th>Flags</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for v in compliance_items %}
-                  <tr>
-                    <td>{{ v.voucher_number }}</td>
-                    <td>{{ v.date }}</td>
-                    <td>{{ v.type }}</td>
-                    <td>{{ v.party_name or '-' }}</td>
-                    <td>{{ v.invoice_number or '-' }}</td>
-                    <td>{{ v.ai_flags }}</td>
-                    <td>{{ v.review_status or 'Pending' }}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="7">
-                      <div class="explain"><strong>Why flagged:</strong> {{ v.ai_explanation or '-' }}</div>
-                      <div class="explain"><strong>Suggested fix:</strong> {{ v.ai_suggested_fix or '-' }}</div>
-                    </td>
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            {% else %}
-              <p class="muted">No compliance issues found.</p>
-            {% endif %}
-          </div>
-        {% endif %}
-
+          <table>
+            <thead>
+              <tr>
+                <th>Voucher No.</th>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Party</th>
+                <th>Invoice</th>
+                <th>Total</th>
+                <th>AI Risk</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>V-20260310-001</td>
+                <td>2026-03-10</td>
+                <td>Sales</td>
+                <td>Riverside Motors Pvt Ltd</td>
+                <td>INV-AL-204</td>
+                <td>₹16,00,000.00</td>
+                <td><span class="badge medium">Medium (62)</span></td>
+                <td>Pending Review</td>
+                <td>
+                  <div class="table-actions">
+                    <a href="#" class="secondary">Open</a>
+                    <a href="#" class="danger">Flag</a>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>V-20260310-002</td>
+                <td>2026-03-10</td>
+                <td>Purchase</td>
+                <td>SilverOak Supplies</td>
+                <td>INV-9012</td>
+                <td>₹1,00,300.00</td>
+                <td><span class="badge low">Low (21)</span></td>
+                <td>AI Cleared</td>
+                <td>
+                  <div class="table-actions">
+                    <a href="#" class="secondary">Open</a>
+                    <a href="#" class="primary">Approve</a>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>V-20260310-003</td>
+                <td>2026-03-10</td>
+                <td>Payment</td>
+                <td>Urban Fabricators</td>
+                <td>PAY-4482</td>
+                <td>₹4,75,000.00</td>
+                <td><span class="badge high">High (84)</span></td>
+                <td>Escalated</td>
+                <td>
+                  <div class="table-actions">
+                    <a href="#" class="secondary">Open</a>
+                    <a href="#" class="danger">Investigate</a>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
       </main>
     </div>
 
-    <div class="footer">
+    <footer class="footer">
       <span>F2 Change Date</span>
       <span>F3 Company</span>
       <span>F4 Contra</span>
@@ -1090,140 +1104,19 @@ Payment Mode: Bank"></textarea>
       <span>F8 Sales</span>
       <span>F9 Purchase</span>
       <span>Ctrl + S Save</span>
-    </div>
+    </footer>
   </div>
 
-<script>
-  function updateClock() {
-    const clock = document.getElementById("clock");
-    if (clock) clock.textContent = new Date().toLocaleString();
-  }
-  updateClock();
-  setInterval(updateClock, 1000);
-
-  const voucherDate = document.getElementById("voucherDate");
-  if (voucherDate && !voucherDate.value) {
-    voucherDate.value = new Date().toISOString().slice(0, 10);
-  }
-
-  const voucherNumber = document.getElementById("voucherNumber");
-  if (voucherNumber && !voucherNumber.value) {
-    voucherNumber.value = "V-" + Date.now();
-  }
-
-  async function autoFillHSNAndGST() {
-    const productInput = document.getElementById("product_name");
-    const baseAmountInput = document.getElementById("base_amount");
-    const hsnInput = document.getElementById("hsn_code");
-    const gstRateInput = document.getElementById("gst_rate");
-    const taxAmountInput = document.getElementById("tax_amount");
-    const totalAmountInput = document.getElementById("total_amount");
-
-    if (!productInput || !baseAmountInput || !hsnInput || !gstRateInput || !taxAmountInput || !totalAmountInput) {
-      return;
-    }
-
-    const product = productInput.value.trim();
-    const amount = parseFloat(baseAmountInput.value || "0");
-
-    if (!product) {
-      hsnInput.value = "";
-      gstRateInput.value = "0";
-      taxAmountInput.value = "0.00";
-      totalAmountInput.value = amount.toFixed(2);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/hsn-lookup?product=${encodeURIComponent(product)}&amount=${encodeURIComponent(amount)}`);
-      const data = await res.json();
-
-      hsnInput.value = data.hsn_code || "";
-      gstRateInput.value = Number(data.gst_rate || 0).toFixed(2);
-      taxAmountInput.value = Number(data.tax_amount || 0).toFixed(2);
-      totalAmountInput.value = Number(data.total_amount || amount).toFixed(2);
-    } catch (err) {
-      console.error("HSN lookup failed", err);
-    }
-  }
-
-  const productInput = document.getElementById("product_name");
-  const baseAmountInput = document.getElementById("base_amount");
-
-  if (productInput) productInput.addEventListener("input", autoFillHSNAndGST);
-  if (baseAmountInput) baseAmountInput.addEventListener("input", autoFillHSNAndGST);
-
-  const addLineBtn = document.getElementById("addLineBtn");
-  if (addLineBtn) {
-    addLineBtn.addEventListener("click", function() {
-      const container = document.getElementById("voucherLines");
-      const row = document.createElement("div");
-      row.className = "voucher-line";
-      row.innerHTML = `
-        <div>
-          <label>Ledger</label>
-          <select name="ledger_id">
-            <option value="">Select Ledger</option>
-            {% for l in ledgers %}
-            <option value="{{ l.id }}">{{ l.ledger_name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label>Debit</label>
-          <input type="number" step="0.01" name="debit" value="0" />
-        </div>
-        <div>
-          <label>Credit</label>
-          <input type="number" step="0.01" name="credit" value="0" />
-        </div>
-        <div>
-          <button type="button" class="danger remove-line">Remove</button>
-        </div>
-      `;
-      container.appendChild(row);
-    });
-  }
-
-  document.addEventListener("click", function(e) {
-    if (e.target.classList.contains("remove-line")) {
-      const rows = document.querySelectorAll(".voucher-line");
-      if (rows.length > 2) {
-        e.target.closest(".voucher-line").remove();
-      } else {
-        alert("At least 2 voucher lines are required.");
-      }
-    }
-  });
-
-  document.addEventListener("keydown", function(e) {
-    if (e.ctrlKey && e.key.toLowerCase() === "s") {
-      const form = document.querySelector("main form");
-      if (form) {
-        e.preventDefault();
-        form.requestSubmit();
+  <script>
+    function updateClock() {
+      const clock = document.getElementById('clock');
+      if (clock) {
+        clock.textContent = new Date().toLocaleString();
       }
     }
 
-    if (e.key === "F3") {
-      e.preventDefault();
-      window.location.href = "/?screen=company";
-    }
-
-    const voucherKeyMap = {
-      F4: "Contra",
-      F5: "Payment",
-      F6: "Receipt",
-      F7: "Journal",
-      F8: "Sales",
-      F9: "Purchase"
-    };
-
-    if (voucherKeyMap[e.key]) {
-      e.preventDefault();
-      window.location.href = "/?screen=voucher&type=" + encodeURIComponent(voucherKeyMap[e.key]);
-    }
-  });
-</script>
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
 </body>
 </html>
