@@ -4,14 +4,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import sqlite3
 import re
-import os
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 4000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
 app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
 templates = Jinja2Templates(directory="templates")
 
-DB_NAME = os.getenv("DB_NAME", "tally.db")
+DB_NAME = "tally.db"
 
 DEFAULT_LEDGER_GROUPS = [
     "Capital Account",
@@ -331,7 +327,7 @@ def build_ai_summary(stats, duplicate_invoices, high_cash_entries, missing_gstin
 
 
 def lookup_hsn(product_name: str):
-    if not product_name or not product_name.strip():
+    if not product_name.strip():
         return None
 
     name = product_name.strip().lower()
@@ -975,3 +971,337 @@ def create_company_route(
     if not request.cookies.get("active_company_id"):
         response.set_cookie("active_company_id", str(company_id))
     return response
+
+
+@app.get("/company/select/{company_id}")
+def select_company(company_id: int):
+    response = RedirectResponse(url="/?screen=dashboard", status_code=303)
+    response.set_cookie("active_company_id", str(company_id))
+    return response
+
+
+@app.get("/company/delete/{company_id}")
+def delete_company_route(request: Request, company_id: int):
+    with get_conn() as conn:
+        voucher_ids = conn.execute(
+            "SELECT id FROM vouchers WHERE company_id = ?",
+            (company_id,)
+        ).fetchall()
+
+        for row in voucher_ids:
+            conn.execute("DELETE FROM voucher_entries WHERE voucher_id = ?", (row["id"],))
+            conn.execute("DELETE FROM ai_transactions WHERE voucher_id = ?", (row["id"],))
+
+        conn.execute("DELETE FROM vouchers WHERE company_id = ?", (company_id,))
+        conn.execute("DELETE FROM ledgers WHERE company_id = ?", (company_id,))
+        conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+
+    response = RedirectResponse(url="/?screen=company", status_code=303)
+    if request.cookies.get("active_company_id") == str(company_id):
+        response.delete_cookie("active_company_id")
+    return response
+
+
+@app.post("/ledger")
+def create_ledger_route(
+    request: Request,
+    ledger_name: str = Form(...),
+    group_name: str = Form(...),
+    opening_balance: float = Form(0),
+    balance_type: str = Form("Debit"),
+    gst_applicable: str = Form("No"),
+    gst_number: str = Form(""),
+    address: str = Form(""),
+    phone: str = Form(""),
+    email: str = Form(""),
+):
+    active_company = get_active_company(request)
+    if not active_company:
+        return RedirectResponse(url="/?screen=ledger", status_code=303)
+
+    with get_conn() as conn:
+        existing = conn.execute("""
+            SELECT COUNT(*)
+            FROM ledgers
+            WHERE company_id = ? AND LOWER(ledger_name) = LOWER(?)
+        """, (active_company["id"], ledger_name.strip())).fetchone()[0]
+
+        if existing == 0:
+            conn.execute("""
+                INSERT INTO ledgers (
+                    company_id, ledger_name, group_name, opening_balance,
+                    balance_type, gst_applicable, gst_number, address, phone, email
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                active_company["id"],
+                ledger_name.strip(),
+                group_name,
+                opening_balance,
+                balance_type,
+                gst_applicable,
+                gst_number.strip(),
+                address.strip(),
+                phone.strip(),
+                email.strip()
+            ))
+
+    return RedirectResponse(url="/?screen=ledger", status_code=303)
+
+
+@app.get("/ledger/delete/{ledger_id}")
+def delete_ledger_route(ledger_id: int):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM ledgers WHERE id = ?", (ledger_id,))
+    return RedirectResponse(url="/?screen=ledger", status_code=303)
+
+
+@app.post("/voucher")
+async def create_voucher_route(request: Request):
+    active_company = get_active_company(request)
+    if not active_company:
+        return RedirectResponse(url="/?screen=voucher", status_code=303)
+
+    form = await request.form()
+
+    voucher_number = str(form.get("voucherNumber", "")).strip()
+    date = str(form.get("date", "")).strip()
+    voucher_type = str(form.get("type", "")).strip()
+    narration = str(form.get("narration", "")).strip()
+    party_name = str(form.get("party_name", "")).strip()
+    payment_mode = str(form.get("payment_mode", "")).strip()
+    invoice_number = str(form.get("invoice_number", "")).strip()
+    product_name = str(form.get("product_name", "")).strip()
+    hsn_code = str(form.get("hsn_code", "")).strip()
+
+    base_amount = float(form.get("base_amount", "0") or 0)
+    gst_rate = float(form.get("gst_rate", "0") or 0)
+    tax_amount = float(form.get("tax_amount", "0") or 0)
+    total_amount = float(form.get("total_amount", "0") or 0)
+
+    if product_name and (gst_rate == 0 or not hsn_code):
+        hsn_result = calculate_tax_from_product(product_name, base_amount)
+        if hsn_result["matched"]:
+            hsn_code = hsn_result["hsn_code"]
+            gst_rate = hsn_result["gst_rate"]
+            tax_amount = hsn_result["tax_amount"]
+            total_amount = hsn_result["total_amount"]
+
+    ledger_ids = form.getlist("ledger_id")
+    debits = form.getlist("debit")
+    credits = form.getlist("credit")
+
+    cleaned_entries = []
+    for ledger_id, debit, credit in zip(ledger_ids, debits, credits):
+        if not ledger_id:
+            continue
+        d = float(debit or 0)
+        c = float(credit or 0)
+        if d <= 0 and c <= 0:
+            continue
+        cleaned_entries.append({
+            "ledger_id": int(ledger_id),
+            "debit": d,
+            "credit": c
+        })
+
+    if len(cleaned_entries) < 2:
+        return RedirectResponse(url="/?screen=voucher", status_code=303)
+
+    debit_total = sum(x["debit"] for x in cleaned_entries)
+    credit_total = sum(x["credit"] for x in cleaned_entries)
+
+    if round(debit_total, 2) != round(credit_total, 2):
+        return RedirectResponse(url="/?screen=voucher", status_code=303)
+
+    voucher_data = {
+        "voucher_number": voucher_number,
+        "date": date,
+        "type": voucher_type,
+        "narration": narration,
+        "party_name": party_name,
+        "payment_mode": payment_mode,
+        "invoice_number": invoice_number,
+        "tax_amount": tax_amount
+    }
+
+    ai = analyze_voucher(active_company["id"], voucher_data, cleaned_entries)
+
+    with get_conn() as conn:
+        cur = conn.execute("""
+            INSERT INTO vouchers (
+                company_id, voucher_number, date, type, narration,
+                party_name, payment_mode, invoice_number,
+                product_name, hsn_code, gst_rate, tax_amount, base_amount, total_amount,
+                ai_risk_level, ai_risk_score, ai_flags, ai_explanation,
+                ai_suggested_fix, ai_score_breakdown, review_status, ai_category
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            active_company["id"],
+            voucher_number,
+            date,
+            voucher_type,
+            narration,
+            party_name,
+            payment_mode,
+            invoice_number,
+            product_name,
+            hsn_code,
+            gst_rate,
+            tax_amount,
+            base_amount,
+            total_amount,
+            ai["risk_level"],
+            ai["risk_score"],
+            ai["flags"],
+            ai["explanation"],
+            ai["suggested_fix"],
+            ai["score_breakdown"],
+            "Pending",
+            ai["category"]
+        ))
+        voucher_id = cur.lastrowid
+
+        for item in cleaned_entries:
+            conn.execute("""
+                INSERT INTO voucher_entries (voucher_id, ledger_id, debit, credit)
+                VALUES (?, ?, ?, ?)
+            """, (voucher_id, item["ledger_id"], item["debit"], item["credit"]))
+
+    sync_ai_transactions(active_company["id"], voucher_id)
+    return RedirectResponse(url="/?screen=voucher", status_code=303)
+
+
+@app.post("/scanner/preview", response_class=HTMLResponse)
+def scanner_preview(request: Request, invoice_text: str = Form(...), voucher_type: str = Form("Purchase")):
+    parsed = parse_invoice_text(invoice_text)
+    hsn_result = calculate_tax_from_product(parsed["product_name"], parsed["base_amount"])
+
+    scanner_result = {
+        "voucher_type": voucher_type,
+        "invoice_text": invoice_text,
+        "invoice_number": parsed["invoice_number"],
+        "party_name": parsed["party_name"],
+        "product_name": parsed["product_name"],
+        "date": parsed["date"],
+        "payment_mode": parsed["payment_mode"] or "Bank",
+        "base_amount": parsed["base_amount"],
+        "hsn_code": parsed["hsn_code"] or hsn_result["hsn_code"],
+        "gst_rate": parsed["gst_rate"] or hsn_result["gst_rate"],
+        "tax_amount": hsn_result["tax_amount"] if hsn_result["matched"] else 0,
+        "total_amount": hsn_result["total_amount"] if hsn_result["matched"] else parsed["base_amount"],
+        "matched": hsn_result["matched"],
+    }
+
+    return templates.TemplateResponse(
+        "index.html",
+        build_context(request, screen="scanner", scanner_result=scanner_result)
+    )
+
+
+@app.post("/scanner/create")
+def scanner_create(
+    request: Request,
+    voucher_type: str = Form("Purchase"),
+    invoice_number: str = Form(""),
+    party_name: str = Form(""),
+    product_name: str = Form(""),
+    date: str = Form(""),
+    payment_mode: str = Form("Bank"),
+    base_amount: float = Form(0),
+    hsn_code: str = Form(""),
+    gst_rate: float = Form(0),
+    tax_amount: float = Form(0),
+    total_amount: float = Form(0),
+):
+    active_company = get_active_company(request)
+    if not active_company:
+        return RedirectResponse(url="/?screen=scanner", status_code=303)
+
+    debit_ledger, credit_ledger = pick_default_ledgers(active_company["id"], voucher_type)
+    if not debit_ledger or not credit_ledger:
+        return RedirectResponse(url="/?screen=scanner", status_code=303)
+
+    voucher_number = f"SCAN-{abs(hash((invoice_number, party_name, date))) % 1000000}"
+    narration = f"Auto-created from invoice scanner for {product_name}".strip()
+
+    cleaned_entries = [
+        {
+            "ledger_id": int(debit_ledger["id"]),
+            "debit": float(total_amount),
+            "credit": 0.0
+        },
+        {
+            "ledger_id": int(credit_ledger["id"]),
+            "debit": 0.0,
+            "credit": float(total_amount)
+        }
+    ]
+
+    voucher_data = {
+        "voucher_number": voucher_number,
+        "date": date or "2026-03-09",
+        "type": voucher_type,
+        "narration": narration,
+        "party_name": party_name,
+        "payment_mode": payment_mode,
+        "invoice_number": invoice_number,
+        "tax_amount": tax_amount
+    }
+
+    ai = analyze_voucher(active_company["id"], voucher_data, cleaned_entries)
+
+    with get_conn() as conn:
+        cur = conn.execute("""
+            INSERT INTO vouchers (
+                company_id, voucher_number, date, type, narration,
+                party_name, payment_mode, invoice_number,
+                product_name, hsn_code, gst_rate, tax_amount, base_amount, total_amount,
+                ai_risk_level, ai_risk_score, ai_flags, ai_explanation,
+                ai_suggested_fix, ai_score_breakdown, review_status, ai_category
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            active_company["id"],
+            voucher_number,
+            date or "2026-03-09",
+            voucher_type,
+            narration,
+            party_name,
+            payment_mode,
+            invoice_number,
+            product_name,
+            hsn_code,
+            gst_rate,
+            tax_amount,
+            base_amount,
+            total_amount,
+            ai["risk_level"],
+            ai["risk_score"],
+            ai["flags"],
+            ai["explanation"],
+            ai["suggested_fix"],
+            ai["score_breakdown"],
+            "Pending",
+            ai["category"]
+        ))
+        voucher_id = cur.lastrowid
+
+        for item in cleaned_entries:
+            conn.execute("""
+                INSERT INTO voucher_entries (voucher_id, ledger_id, debit, credit)
+                VALUES (?, ?, ?, ?)
+            """, (voucher_id, item["ledger_id"], item["debit"], item["credit"]))
+
+    sync_ai_transactions(active_company["id"], voucher_id)
+    return RedirectResponse(url="/?screen=voucher", status_code=303)
+
+
+@app.get("/voucher/delete/{voucher_id}")
+def delete_voucher_route(voucher_id: int):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM voucher_entries WHERE voucher_id = ?", (voucher_id,))
+        conn.execute("DELETE FROM ai_transactions WHERE voucher_id = ?", (voucher_id,))
+        conn.execute("DELETE FROM vouchers WHERE id = ?", (voucher_id,))
+    return RedirectResponse(url="/?screen=voucher", status_code=303)
