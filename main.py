@@ -1,13 +1,12 @@
-from contextlib import contextmanager
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-import sqlite3
 import re
+
+from db import get_conn, init_db, execute
+
 app = FastAPI(title="Tally Clone + AI Scrutiny + HSN + Invoice Scanner")
 templates = Jinja2Templates(directory="templates")
-
-DB_NAME = "tally.db"
 
 DEFAULT_LEDGER_GROUPS = [
     "Capital Account",
@@ -21,189 +20,11 @@ DEFAULT_LEDGER_GROUPS = [
 ]
 
 
-@contextmanager
-def get_conn():
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def init_db():
-    with get_conn() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS companies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                mailing_name TEXT,
-                address TEXT,
-                state TEXT,
-                country TEXT DEFAULT 'India',
-                phone TEXT,
-                email TEXT,
-                financial_year_start TEXT,
-                books_from TEXT,
-                currency TEXT DEFAULT '₹',
-                maintain_inventory TEXT DEFAULT 'Yes',
-                enable_gst TEXT DEFAULT 'Yes'
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS ledgers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_id INTEGER NOT NULL,
-                ledger_name TEXT NOT NULL,
-                group_name TEXT NOT NULL,
-                opening_balance REAL DEFAULT 0,
-                balance_type TEXT DEFAULT 'Debit',
-                gst_applicable TEXT DEFAULT 'No',
-                gst_number TEXT,
-                address TEXT,
-                phone TEXT,
-                email TEXT,
-                UNIQUE(company_id, ledger_name)
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS vouchers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_id INTEGER NOT NULL,
-                voucher_number TEXT NOT NULL,
-                date TEXT NOT NULL,
-                type TEXT NOT NULL,
-                narration TEXT,
-                party_name TEXT,
-                payment_mode TEXT,
-                invoice_number TEXT,
-                product_name TEXT,
-                hsn_code TEXT,
-                gst_rate REAL DEFAULT 0,
-                tax_amount REAL DEFAULT 0,
-                base_amount REAL DEFAULT 0,
-                total_amount REAL DEFAULT 0,
-                ai_risk_level TEXT DEFAULT 'Low',
-                ai_risk_score INTEGER DEFAULT 0,
-                ai_flags TEXT DEFAULT '',
-                ai_explanation TEXT DEFAULT '',
-                ai_suggested_fix TEXT DEFAULT '',
-                ai_score_breakdown TEXT DEFAULT '',
-                review_status TEXT DEFAULT 'Pending',
-                ai_category TEXT DEFAULT 'General'
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS voucher_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                voucher_id INTEGER NOT NULL,
-                ledger_id INTEGER NOT NULL,
-                debit REAL DEFAULT 0,
-                credit REAL DEFAULT 0
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS ai_transactions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company_id INTEGER NOT NULL,
-                voucher_id INTEGER NOT NULL,
-                date TEXT NOT NULL,
-                voucher_type TEXT NOT NULL,
-                voucher_number TEXT NOT NULL,
-                party_name TEXT,
-                ledger_name TEXT,
-                amount REAL DEFAULT 0,
-                tax_amount REAL DEFAULT 0,
-                payment_mode TEXT,
-                gstin TEXT,
-                invoice_number TEXT,
-                source_table TEXT DEFAULT 'vouchers',
-                risk_flags TEXT DEFAULT ''
-            )
-        """)
-
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS hsn_master (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                product_name TEXT NOT NULL,
-                hsn_code TEXT NOT NULL,
-                gst_rate REAL NOT NULL
-            )
-        """)
-
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_ledgers_company ON ledgers(company_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_vouchers_company ON vouchers(company_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_voucher ON voucher_entries(voucher_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_tx_company ON ai_transactions(company_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_tx_voucher ON ai_transactions(voucher_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_hsn_product ON hsn_master(product_name)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_hsn_code ON hsn_master(hsn_code)")
-
-        existing_cols = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(vouchers)").fetchall()
-        }
-
-        alter_statements = {
-            "ai_score_breakdown": "ALTER TABLE vouchers ADD COLUMN ai_score_breakdown TEXT DEFAULT ''",
-            "review_status": "ALTER TABLE vouchers ADD COLUMN review_status TEXT DEFAULT 'Pending'",
-            "ai_category": "ALTER TABLE vouchers ADD COLUMN ai_category TEXT DEFAULT 'General'",
-            "party_name": "ALTER TABLE vouchers ADD COLUMN party_name TEXT",
-            "payment_mode": "ALTER TABLE vouchers ADD COLUMN payment_mode TEXT",
-            "invoice_number": "ALTER TABLE vouchers ADD COLUMN invoice_number TEXT",
-            "tax_amount": "ALTER TABLE vouchers ADD COLUMN tax_amount REAL DEFAULT 0",
-            "ai_explanation": "ALTER TABLE vouchers ADD COLUMN ai_explanation TEXT DEFAULT ''",
-            "ai_suggested_fix": "ALTER TABLE vouchers ADD COLUMN ai_suggested_fix TEXT DEFAULT ''",
-            "product_name": "ALTER TABLE vouchers ADD COLUMN product_name TEXT",
-            "hsn_code": "ALTER TABLE vouchers ADD COLUMN hsn_code TEXT",
-            "gst_rate": "ALTER TABLE vouchers ADD COLUMN gst_rate REAL DEFAULT 0",
-            "base_amount": "ALTER TABLE vouchers ADD COLUMN base_amount REAL DEFAULT 0",
-            "total_amount": "ALTER TABLE vouchers ADD COLUMN total_amount REAL DEFAULT 0",
-        }
-
-        for col, stmt in alter_statements.items():
-            if col not in existing_cols:
-                conn.execute(stmt)
-
-        seed_hsn_master(conn)
-
-
-def seed_hsn_master(conn):
-    count = conn.execute("SELECT COUNT(*) FROM hsn_master").fetchone()[0]
-    if count > 0:
-        return
-
-    sample_rows = [
-        ("car", "8703", 28),
-        ("motor car", "8703", 28),
-        ("suv", "8703", 28),
-        ("laptop", "8471", 18),
-        ("computer", "8471", 18),
-        ("mobile", "8517", 18),
-        ("smartphone", "8517", 18),
-        ("gold", "7108", 3),
-        ("cement", "2523", 28),
-        ("book", "4901", 0),
-        ("printer", "8443", 18),
-        ("air conditioner", "8415", 28),
-        ("tv", "8528", 18),
-        ("refrigerator", "8418", 18),
-        ("biscuit", "1905", 18),
-    ]
-    conn.executemany(
-        "INSERT INTO hsn_master (product_name, hsn_code, gst_rate) VALUES (?, ?, ?)",
-        sample_rows
-    )
-
-
 @app.on_event("startup")
 def startup():
+    print("Startup begin")
     init_db()
+    print("Startup done")
 
 
 def get_active_company_id(request: Request):
@@ -327,7 +148,7 @@ def build_ai_summary(stats, duplicate_invoices, high_cash_entries, missing_gstin
 
 
 def lookup_hsn(product_name: str):
-    if not product_name.strip():
+    if not product_name or not product_name.strip():
         return None
 
     name = product_name.strip().lower()
@@ -463,44 +284,6 @@ def analyze_voucher(company_id, voucher_data, entries):
                 voucher_data["type"]
             )).fetchone()[0]
 
-        duplicate_vendor_bill = 0
-        if voucher_data["party_name"] and voucher_data["invoice_number"]:
-            duplicate_vendor_bill = conn.execute("""
-                SELECT COUNT(*)
-                FROM vouchers
-                WHERE company_id = ?
-                  AND party_name = ?
-                  AND invoice_number = ?
-                  AND type = ?
-            """, (
-                company_id,
-                voucher_data["party_name"],
-                voucher_data["invoice_number"],
-                voucher_data["type"]
-            )).fetchone()[0]
-
-        similar_party_amount = 0
-        if voucher_data["party_name"]:
-            similar_party_amount = conn.execute("""
-                SELECT COUNT(*)
-                FROM vouchers
-                WHERE company_id = ?
-                  AND party_name = ?
-                  AND type = ?
-                  AND ABS(
-                        COALESCE((
-                            SELECT SUM(ve.debit)
-                            FROM voucher_entries ve
-                            WHERE ve.voucher_id = vouchers.id
-                        ), 0) - ?
-                  ) < 1
-            """, (
-                company_id,
-                voucher_data["party_name"],
-                voucher_data["type"],
-                total_amount
-            )).fetchone()[0]
-
     ledger_map = get_ledger_map(company_id)
 
     has_cash_bank = False
@@ -536,21 +319,6 @@ def analyze_voucher(company_id, voucher_data, entries):
         risk_score += 30
         ai_category = "Duplicate"
 
-    if voucher_data["party_name"] and voucher_data["invoice_number"] and duplicate_vendor_bill > 0:
-        flags.append("Possible duplicate vendor bill")
-        explanations.append("Same vendor and same invoice number already exist.")
-        suggestions.append("Verify duplicate booking before filing returns.")
-        score_parts.append("Duplicate vendor bill: +25")
-        risk_score += 25
-        ai_category = "Duplicate"
-
-    if voucher_data["party_name"] and similar_party_amount > 0:
-        flags.append("Same party same amount pattern")
-        explanations.append("A similar amount already exists for the same party and voucher type.")
-        suggestions.append("Check if this is repeated or split billing.")
-        score_parts.append("Repeated vendor amount pattern: +10")
-        risk_score += 10
-
     if avg_amt > 0 and total_amount > avg_amt * 3:
         flags.append("Abnormally high voucher amount")
         explanations.append("This voucher amount is much higher than recent average for the same type.")
@@ -558,13 +326,6 @@ def analyze_voucher(company_id, voucher_data, entries):
         score_parts.append("Unusual amount spike: +25")
         risk_score += 25
         ai_category = "Amount Anomaly"
-
-    if total_amount >= 10000 and int(total_amount) == total_amount and int(total_amount) % 1000 == 0:
-        flags.append("Rounded amount pattern")
-        explanations.append("The amount is a large rounded figure, which may require review.")
-        suggestions.append("Check invoice and actual breakup.")
-        score_parts.append("Rounded amount: +8")
-        risk_score += 8
 
     if has_cash_bank and total_amount > 50000:
         flags.append("High cash/bank transaction")
@@ -574,18 +335,10 @@ def analyze_voucher(company_id, voucher_data, entries):
         risk_score += 20
         ai_category = "Cash Flow"
 
-    if voucher_data["payment_mode"].strip().lower() == "cash" and total_amount > 20000:
-        flags.append("High cash payment")
-        explanations.append("Cash payment exceeds safe scrutiny threshold.")
-        suggestions.append("Maintain proof and justification for cash usage.")
-        score_parts.append("High cash payment: +20")
-        risk_score += 20
-        ai_category = "Cash Flow"
-
     if voucher_data["type"] in ("Sales", "Purchase") and not voucher_data["narration"].strip():
         flags.append("Missing narration")
         explanations.append("Sales/Purchase voucher has no narration.")
-        suggestions.append("Add meaningful narration for scrutiny readiness.")
+        suggestions.append("Add meaningful narration.")
         score_parts.append("Missing narration: +6")
         risk_score += 6
 
@@ -605,45 +358,13 @@ def analyze_voucher(company_id, voucher_data, entries):
         risk_score += 12
         ai_category = "Missing Data"
 
-    if voucher_data["type"] in ("Sales", "Purchase"):
-        if voucher_data["tax_amount"] < 0:
-            flags.append("Negative tax amount")
-            explanations.append("Tax amount cannot be negative.")
-            suggestions.append("Correct GST value.")
-            score_parts.append("Negative tax amount: +20")
-            risk_score += 20
-            ai_category = "GST"
-
-        elif total_amount > 0 and voucher_data["tax_amount"] == 0:
-            flags.append("Missing GST amount")
-            explanations.append("Sales/Purchase voucher has zero tax amount.")
-            suggestions.append("Verify whether GST applies.")
-            score_parts.append("Missing GST amount: +10")
-            risk_score += 10
-            ai_category = "GST"
-
-        elif total_amount > 0 and voucher_data["tax_amount"] > total_amount * 0.40:
-            flags.append("Abnormal GST amount")
-            explanations.append("Tax amount is unusually high compared to voucher value.")
-            suggestions.append("Check GST rate and taxable amount.")
-            score_parts.append("Abnormal GST amount: +20")
-            risk_score += 20
-            ai_category = "GST"
-
     if has_missing_gstin:
         flags.append("Missing GST number on GST-applicable ledger")
         explanations.append("A GST-applicable ledger linked to this voucher has no GST number.")
-        suggestions.append("Update ledger GSTIN before tax reporting.")
+        suggestions.append("Update ledger GSTIN.")
         score_parts.append("Missing GSTIN: +18")
         risk_score += 18
         ai_category = "GST"
-
-    if len(entries) >= 4:
-        flags.append("Complex voucher structure")
-        explanations.append("Voucher has many lines and should be manually checked.")
-        suggestions.append("Review ledger allocations.")
-        score_parts.append("Complex voucher structure: +5")
-        risk_score += 5
 
     if risk_score >= 50:
         risk_level = "High"
@@ -846,7 +567,7 @@ def parse_invoice_text(invoice_text: str):
         r"description[:\-]?\s*([A-Za-z0-9 \-&\.]+)",
     ])
 
-    date = find_first([
+    voucher_date = find_first([
         r"date[:\-]?\s*([0-9]{4}\-[0-9]{2}\-[0-9]{2})",
         r"date[:\-]?\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})",
         r"date[:\-]?\s*([0-9]{2}\-[0-9]{2}\-[0-9]{4})",
@@ -885,7 +606,7 @@ def parse_invoice_text(invoice_text: str):
         "invoice_number": invoice_number,
         "party_name": party_name,
         "product_name": product_name,
-        "date": date,
+        "date": voucher_date,
         "base_amount": base_amount,
         "hsn_code": hsn_code,
         "gst_rate": gst_rate,
@@ -897,7 +618,6 @@ def parse_invoice_text(invoice_text: str):
 def build_context(request: Request, screen="dashboard", selected_voucher_type="", scanner_result=None):
     active_company = get_active_company(request)
     company_id = active_company["id"] if active_company else None
-
     data = ai_dashboard(company_id)
 
     return {
@@ -1051,8 +771,7 @@ def create_ledger_route(
 
 @app.get("/ledger/delete/{ledger_id}")
 def delete_ledger_route(ledger_id: int):
-    with get_conn() as conn:
-        conn.execute("DELETE FROM ledgers WHERE id = ?", (ledger_id,))
+    execute("DELETE FROM ledgers WHERE id = ?", (ledger_id,))
     return RedirectResponse(url="/?screen=ledger", status_code=303)
 
 
@@ -1065,7 +784,7 @@ async def create_voucher_route(request: Request):
     form = await request.form()
 
     voucher_number = str(form.get("voucherNumber", "")).strip()
-    date = str(form.get("date", "")).strip()
+    voucher_date = str(form.get("date", "")).strip()
     voucher_type = str(form.get("type", "")).strip()
     narration = str(form.get("narration", "")).strip()
     party_name = str(form.get("party_name", "")).strip()
@@ -1116,7 +835,7 @@ async def create_voucher_route(request: Request):
 
     voucher_data = {
         "voucher_number": voucher_number,
-        "date": date,
+        "date": voucher_date,
         "type": voucher_type,
         "narration": narration,
         "party_name": party_name,
@@ -1140,7 +859,7 @@ async def create_voucher_route(request: Request):
         """, (
             active_company["id"],
             voucher_number,
-            date,
+            voucher_date,
             voucher_type,
             narration,
             party_name,
