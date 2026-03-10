@@ -20,9 +20,10 @@ app = FastAPI(title="Tally Clone + AI Scrutiny + Invoice Scanner")
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
-UPLOAD_DIR = BASE_DIR / "uploads"
 
-UPLOAD_DIR.mkdir(exist_ok=True)
+# Vercel writable directory
+UPLOAD_DIR = Path("/tmp/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # -------------------------------
 # Templates
@@ -31,10 +32,12 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # -------------------------------
-# Initialize Database
+# Initialize Database (safe)
 # -------------------------------
 
-init_db()
+@app.on_event("startup")
+def startup():
+    init_db()
 
 # -------------------------------
 # Home Page
@@ -77,7 +80,7 @@ def get_ledgers():
 
 @app.post("/upload-invoice")
 async def upload_invoice(file: UploadFile = File(...)):
-    
+
     file_id = str(uuid.uuid4())
     file_path = UPLOAD_DIR / f"{file_id}_{file.filename}"
 
