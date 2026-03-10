@@ -869,135 +869,137 @@ Payment Mode: Bank"></textarea>
     </div>
   </div>
 
-  <script>
-    function updateClock() {
-      const clock = document.getElementById("clock");
-      if (clock) clock.textContent = new Date().toLocaleString();
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
+<script>
+  function updateClock() {
+    const clock = document.getElementById("clock");
+    if (clock) clock.textContent = new Date().toLocaleString();
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
 
-    const voucherDate = document.getElementById("voucherDate");
-    if (voucherDate && !voucherDate.value) {
-      voucherDate.value = new Date().toISOString().slice(0, 10);
-    }
+  const voucherDate = document.getElementById("voucherDate");
+  if (voucherDate && !voucherDate.value) {
+    voucherDate.value = new Date().toISOString().slice(0, 10);
+  }
 
-    const voucherNumber = document.getElementById("voucherNumber");
-    if (voucherNumber && !voucherNumber.value) {
-      voucherNumber.value = "V-" + Date.now();
-    }
+  const voucherNumber = document.getElementById("voucherNumber");
+  if (voucherNumber && !voucherNumber.value) {
+    voucherNumber.value = "V-" + Date.now();
+  }
 
-    async function autoFillHSNAndGST() {
-      const productInput = document.getElementById("product_name");
-      const baseAmountInput = document.getElementById("base_amount");
-      const hsnInput = document.getElementById("hsn_code");
-      const gstRateInput = document.getElementById("gst_rate");
-      const taxAmountInput = document.getElementById("tax_amount");
-      const totalAmountInput = document.getElementById("total_amount");
-
-      if (!productInput || !baseAmountInput || !hsnInput || !gstRateInput || !taxAmountInput || !totalAmountInput) {
-        return;
-      }
-
-      const product = productInput.value.trim();
-      const amount = parseFloat(baseAmountInput.value || "0");
-
-      if (!product) {
-        hsnInput.value = "";
-        gstRateInput.value = 0;
-        taxAmountInput.value = 0;
-        totalAmountInput.value = amount.toFixed(2);
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/hsn-lookup?product=${encodeURIComponent(product)}&amount=${encodeURIComponent(amount)}`);
-        const data = await res.json();
-
-        hsnInput.value = data.hsn_code || "";
-        gstRateInput.value = data.gst_rate || 0;
-        taxAmountInput.value = data.tax_amount || 0;
-        totalAmountInput.value = data.total_amount || amount.toFixed(2);
-      } catch (err) {
-        console.error("HSN lookup failed", err);
-      }
-    }
-
+  async function autoFillHSNAndGST() {
     const productInput = document.getElementById("product_name");
     const baseAmountInput = document.getElementById("base_amount");
+    const hsnInput = document.getElementById("hsn_code");
+    const gstRateInput = document.getElementById("gst_rate");
+    const taxAmountInput = document.getElementById("tax_amount");
+    const totalAmountInput = document.getElementById("total_amount");
 
-    if (productInput) productInput.addEventListener("input", autoFillHSNAndGST);
-    if (baseAmountInput) baseAmountInput.addEventListener("input", autoFillHSNAndGST);
-
-    const addLineBtn = document.getElementById("addLineBtn");
-    if (addLineBtn) {
-      addLineBtn.addEventListener("click", function() {
-        const container = document.getElementById("voucherLines");
-        const row = document.createElement("div");
-        row.className = "voucher-line";
-        row.innerHTML = `
-          <div>
-            <label>Ledger</label>
-            <select name="ledger_id">
-              <option value="">Select Ledger</option>
-              {% for l in ledgers %}
-              <option value="{{ l.id }}">{{ l.ledger_name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label>Debit</label>
-            <input type="number" step="0.01" name="debit" value="0" />
-          </div>
-          <div>
-            <label>Credit</label>
-            <input type="number" step="0.01" name="credit" value="0" />
-          </div>
-          <div>
-            <button type="button" class="danger remove-line">Remove</button>
-          </div>
-        `;
-        container.appendChild(row);
-      });
+    if (!productInput || !baseAmountInput || !hsnInput || !gstRateInput || !taxAmountInput || !totalAmountInput) {
+      return;
     }
 
-    document.addEventListener("click", function(e) {
-      if (e.target.classList.contains("remove-line")) {
-        const rows = document.querySelectorAll(".voucher-line");
-        if (rows.length > 2) {
-          e.target.closest(".voucher-line").remove();
-        }
-      }
+    const product = productInput.value.trim();
+    const amount = parseFloat(baseAmountInput.value || "0");
+
+    if (!product) {
+      hsnInput.value = "";
+      gstRateInput.value = "0";
+      taxAmountInput.value = "0.00";
+      totalAmountInput.value = amount.toFixed(2);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/hsn-lookup?product=${encodeURIComponent(product)}&amount=${encodeURIComponent(amount)}`);
+      const data = await res.json();
+
+      hsnInput.value = data.hsn_code || "";
+      gstRateInput.value = Number(data.gst_rate || 0).toFixed(2);
+      taxAmountInput.value = Number(data.tax_amount || 0).toFixed(2);
+      totalAmountInput.value = Number(data.total_amount || amount).toFixed(2);
+    } catch (err) {
+      console.error("HSN lookup failed", err);
+    }
+  }
+
+  const productInput = document.getElementById("product_name");
+  const baseAmountInput = document.getElementById("base_amount");
+
+  if (productInput) productInput.addEventListener("input", autoFillHSNAndGST);
+  if (baseAmountInput) baseAmountInput.addEventListener("input", autoFillHSNAndGST);
+
+  const addLineBtn = document.getElementById("addLineBtn");
+  if (addLineBtn) {
+    addLineBtn.addEventListener("click", function() {
+      const container = document.getElementById("voucherLines");
+      const row = document.createElement("div");
+      row.className = "voucher-line";
+      row.innerHTML = `
+        <div>
+          <label>Ledger</label>
+          <select name="ledger_id">
+            <option value="">Select Ledger</option>
+            {% for l in ledgers %}
+            <option value="{{ l.id }}">{{ l.ledger_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Debit</label>
+          <input type="number" step="0.01" name="debit" value="0" />
+        </div>
+        <div>
+          <label>Credit</label>
+          <input type="number" step="0.01" name="credit" value="0" />
+        </div>
+        <div>
+          <button type="button" class="danger remove-line">Remove</button>
+        </div>
+      `;
+      container.appendChild(row);
     });
+  }
 
-    document.addEventListener("keydown", function(e) {
-      if (e.ctrlKey && e.key.toLowerCase() === "s") {
-        const form = document.querySelector("main form");
-        if (form) {
-          e.preventDefault();
-          form.requestSubmit();
-        }
+  document.addEventListener("click", function(e) {
+    if (e.target.classList.contains("remove-line")) {
+      const rows = document.querySelectorAll(".voucher-line");
+      if (rows.length > 2) {
+        e.target.closest(".voucher-line").remove();
+      } else {
+        alert("At least 2 voucher lines are required.");
       }
+    }
+  });
 
-      if (e.key === "F3") {
+  document.addEventListener("keydown", function(e) {
+    if (e.ctrlKey && e.key.toLowerCase() === "s") {
+      const form = document.querySelector("main form");
+      if (form) {
         e.preventDefault();
-        window.location.href = "/?screen=company";
+        form.requestSubmit();
       }
+    }
 
-      const voucherKeyMap = {
-        F4: "Contra",
-        F5: "Payment",
-        F6: "Receipt",
-        F7: "Journal",
-        F8: "Sales",
-        F9: "Purchase"
-      };
+    if (e.key === "F3") {
+      e.preventDefault();
+      window.location.href = "/?screen=company";
+    }
 
-      if (voucherKeyMap[e.key]) {
-        e.preventDefault();
-        window.location.href = "/?screen=voucher&type=" + encodeURIComponent(voucherKeyMap[e.key]);
-      }
-    });
-  </script>
+    const voucherKeyMap = {
+      F4: "Contra",
+      F5: "Payment",
+      F6: "Receipt",
+      F7: "Journal",
+      F8: "Sales",
+      F9: "Purchase"
+    };
+
+    if (voucherKeyMap[e.key]) {
+      e.preventDefault();
+      window.location.href = "/?screen=voucher&type=" + encodeURIComponent(voucherKeyMap[e.key]);
+    }
+  });
+</script>
 </body>
 </html>
