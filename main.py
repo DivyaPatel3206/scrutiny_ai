@@ -23,30 +23,27 @@ def startup():
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, screen: str = "dashboard", type: str = "Journal"):
-    ledgers = fetchall("SELECT * FROM ledgers")
+    companies = fetchall("SELECT * FROM companies ORDER BY id DESC")
+    ledgers = fetchall("SELECT * FROM ledgers ORDER BY id DESC")
 
     context = {
         "request": request,
         "screen": screen,
         "selected_voucher_type": type,
-
-        # values your template expects
         "active_company": None,
-        "companies": [],
+        "companies": companies,
         "ledgers": ledgers,
         "vouchers": [],
         "risk_alerts": [],
         "compliance_items": [],
         "risky_vouchers": [],
         "scanner_result": None,
-
         "summary": {
-            "company_count": 0,
+            "company_count": len(companies),
             "ledger_count": len(ledgers),
             "voucher_count": 0,
             "debit_total": 0.0,
         },
-
         "stats": {
             "total": 0,
             "high_count": 0,
@@ -54,7 +51,6 @@ def home(request: Request, screen: str = "dashboard", type: str = "Journal"):
             "low_count": 0,
             "avg_score": 0.0,
         },
-
         "duplicate_invoices": 0,
         "high_cash_entries": 0,
         "missing_gstin_count": 0,
@@ -72,6 +68,34 @@ def home(request: Request, screen: str = "dashboard", type: str = "Journal"):
     }
 
     return templates.TemplateResponse("index.html", context)
+
+
+@app.post("/company")
+def create_company(
+    name: str = Form(...),
+    mailing_name: str = Form(""),
+    address: str = Form(""),
+    state: str = Form(""),
+    country: str = Form("India"),
+    phone: str = Form(""),
+    email: str = Form(""),
+    financial_year_start: str = Form(""),
+    books_from: str = Form(""),
+    currency: str = Form("₹"),
+    maintain_inventory: str = Form("Yes"),
+    enable_gst: str = Form("Yes"),
+):
+    execute("""
+        INSERT INTO companies (
+            name, mailing_name, address, state, country, phone, email,
+            financial_year_start, books_from, currency, maintain_inventory, enable_gst
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        name, mailing_name, address, state, country, phone, email,
+        financial_year_start, books_from, currency, maintain_inventory, enable_gst
+    ))
+    return RedirectResponse(url="/?screen=company", status_code=303)
 
 
 @app.post("/ledger/add")
